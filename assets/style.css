@@ -1,0 +1,128 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: Arial, sans-serif;
+}
+
+body {
+    background-color: #f4f4f4;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #007bff;
+    color: white;
+    padding: 15px 10%;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+nav ul {
+    list-style: none;
+    display: flex;
+}
+
+nav ul li {
+    margin: 0 15px;
+}
+
+nav ul li a {
+    text-decoration: none;
+    color: white;
+    font-size: 16px;
+}
+
+.auth a {
+    margin-left: 15px;
+    text-decoration: none;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+}
+
+.auth .login {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.auth .signup {
+    background: #28a745;
+}
+
+.hero {
+    text-align: center;
+    padding: 50px 10%;
+    background: #0056b3;
+    color: white;
+}
+
+.hero h1 {
+    font-size: 32px;
+}
+
+.hero p {
+    font-size: 18px;
+    margin: 15px 0;
+}
+
+.btn {
+    display: inline-block;
+    background: #ffcc00;
+    padding: 10px 20px;
+    text-decoration: none;
+    color: #333;
+    font-weight: bold;
+    border-radius: 5px;
+}
+
+.courses {
+    padding: 40px 10%;
+}
+
+.courses h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.course-list {
+    display: flex;
+    justify-content: space-between;
+}
+
+.course {
+    background: white;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 30%;
+    text-align: center;
+}
+
+.course h3 {
+    color: #007bff;
+    margin-bottom: 10px;
+}
+
+.course a {
+    display: inline-block;
+    margin-top: 10px;
+    text-decoration: none;
+    background: #007bff;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 5px;
+}
+
+
+
+footer {
+    text-align: center;
+    padding: 10px;
+    background: #333;
+    color: white;
+    margin-top: 20px;
+}
