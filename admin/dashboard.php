@@ -73,7 +73,7 @@ $result = $conn->query($sql);
         <h1>Chào mừng <?php echo $username; ?>! đến với TOEIC Learning</h1>
         <p>Học TOEIC dễ dàng với lộ trình từ 0 đến 800+.</p>
         <p>Đây là web học tiếng Anh miễn phí dành cho bạn</p>
-        <a href="#" class="btn">Thi thử luyện đề</a>
+        <a href="../test/select_test.php" class="btn">Thi thử luyện đề</a>
     </section>
 
     <section class="courses">
