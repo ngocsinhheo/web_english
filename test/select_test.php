@@ -14,7 +14,7 @@ if (!isset($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chọn Bài Thi</title>
-    <link rel="stylesheet" href="../style.css"> <!-- Sửa lại đường dẫn nếu cần -->
+    <link rel="stylesheet" href="../style.css"> 
 </head>
 <body>
     <div class="select-test-container">
