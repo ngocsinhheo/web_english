@@ -1,7 +1,12 @@
 /* Reset */
 * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
-body { background: #f4f4f4; color: #2c3e50; line-height: 1.6; }
-
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f4f4f4;
+    color: #2c3e50;
+    line-height: 1.6;
+}
 /* Common */
 button, a { cursor: pointer; transition: all 0.3s ease; }
 button:hover, a:hover { transform: translateY(-2px); }
@@ -11,17 +16,86 @@ th, td { padding: 12px; border: 1px solid #e0e0e0; text-align: left; }
 .error { color: #dc3545; text-align: center; padding: 10px; }
 
 /* Header */
-header { 
-    background: linear-gradient(90deg, #007bff, #0056b3); 
-    color: #fff; 
-    padding: 20px 5%; 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2); 
-    position: sticky; 
-    top: 0; 
-    z-index: 1000; 
+/* --- Header --- */
+header {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: #fff;
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.auth a {
+    color: #fff;
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+    position: relative;
+}
+
+.auth a::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 2px;
+    background: #ffcc00;
+    transition: width 0.3s ease;
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+}
+
+.auth a:hover::after {
+    width: 100%;
+}
+
+/* --- Hero Section --- */
+.hero {
+    text-align: center;
+    padding: 80px 10%;
+    background: linear-gradient(135deg, #0056b3, #007bff);
+    color: #fff;
+}
+
+.hero h1 {
+    font-size: 42px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+
+.hero p {
+    font-size: 20px;
+    font-style: italic;
+    margin-bottom: 30px;
+}
+
+.btn {
+    display: inline-block;
+    background: #ffcc00;
+    color: #2c3e50;
+    padding: 12px 30px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.btn:hover {
+    background: #ffe066;
+    transform: scale(1.05);
 }
 header h1 { 
     font-size: 28px; 

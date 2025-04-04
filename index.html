@@ -3,37 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TOEIC Test</title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <title>English Learning</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
-        <h1>TOEIC Test <span id="testTitle"></span></h1>
-        <div class="audio-player">
-            <audio id="audioPlayer" controls><source id="audioSource" src="" type="audio/mpeg"></audio>
+        <div class="logo">English Learning</div>
+        <div class="auth">
+            <a href="auth/login.php">Đăng nhập</a>
+            <a href="auth/register.php">Đăng ký</a>
+            <a href="#">Liên hệ</a>
         </div>
-        <button id="exitBtn">Thoát</button>
     </header>
-    <div class="container">
-        <nav class="part-navigation">
-            <button class="part-btn active" data-part="1">Part 1</button>
-            <button class="part-btn" data-part="2">Part 2</button>
-            <button class="part-btn" data-part="3">Part 3</button>
-            <button class="part-btn" data-part="4">Part 4</button>
-            <button class="part-btn" data-part="5">Part 5</button>
-            <button class="part-btn" data-part="6">Part 6</button>
-            <button class="part-btn" data-part="7">Part 7</button>
-        </nav>
-        <section id="questionSection" class="question-section"></section>
-        <aside class="sidebar">
-            <div class="timer">Thời gian: <span id="timeDisplay">120:00</span></div>
-            <div class="question-list-title">Câu hỏi</div>
-            <div class="question-list" id="questionList"></div>
-            <button id="submitBtn">Nộp bài</button>
-            <div id="scoreDisplay">Điểm: 0/200</div>
-        </aside>
-    </div>
-    <button id="scrollTopBtn" class="scroll-top-btn">Lên đầu</button>
-    <script src="script.js"></script>
+    <section class="hero">
+        <h1>Chào mừng đến với English Learning</h1>
+        <p>Học Tiếng Anh từ cơ bản đến nâng cao</p>
+        <a href="auth/login.php" class="btn">Bắt đầu ngay</a>
+    </section>
 </body>
 </html>
