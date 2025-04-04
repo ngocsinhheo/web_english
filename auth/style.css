@@ -1,0 +1,68 @@
+/* Auth Forms (Login & Register) */
+.auth-form { 
+    width: 400px; 
+    max-width: 90%; 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 15px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
+    margin: 0 auto; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    background: linear-gradient(135deg, #ffffff, #f8f9fa); 
+}
+.auth-form h2 { 
+    font-size: 28px; 
+    font-weight: 600; 
+    color: #2c3e50; 
+    text-align: center; 
+    margin-bottom: 20px; 
+}
+.auth-form input { 
+    width: 100%; 
+    padding: 12px 15px; 
+    margin: 12px 0; 
+    border: 2px solid #e0e0e0; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    background: #f9fbfd; 
+    transition: border-color 0.3s ease; 
+}
+.auth-form input:focus { 
+    border-color: #007bff; 
+    outline: none; 
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button { 
+    width: 100%; 
+    padding: 12px; 
+    background: linear-gradient(90deg, #007bff, #0056b3); 
+    color: #fff; 
+    border: none; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button:hover { 
+    background: linear-gradient(90deg, #0056b3, #003d80); 
+    transform: translateY(-3px); 
+}
+.register-link { 
+    text-align: center; 
+    margin-top: 15px; 
+    font-size: 14px; 
+    color: #7f8c8d; 
+}
+.register-link a { 
+    color: #007bff; 
+    text-decoration: none; 
+    font-weight: 500; 
+}
+.register-link a:hover { 
+    text-decoration: underline; 
+    color: #0056b3; 
+}

@@ -1,44 +1,21 @@
 <?php
 header('Content-Type: application/json');
+require_once '../config/config.php';
 
-$test = isset($_GET['test']) ? $_GET['test'] : 'test1';
-$filePath = "tests/{$test}/uploads/questions.csv";
+$test = filter_var($_GET['test'] ?? 'test1', FILTER_SANITIZE_STRING);
+$filePath = "../tests/{$test}/uploads/questions.csv";
 
-if (!file_exists($filePath)) {
-    echo json_encode(['error' => 'File CSV không tồn tại: ' . $filePath]);
-    exit;
-}
-
-if (!is_readable($filePath)) {
-    echo json_encode(['error' => 'Không thể đọc file CSV: ' . $filePath]);
-    exit;
-}
-
-$file = fopen($filePath, 'r');
-if (!$file) {
-    echo json_encode(['error' => 'Không thể mở file CSV']);
-    exit;
-}
-
-$data = [];
-$headers = fgetcsv($file);
-if (!$headers) {
-    echo json_encode(['error' => 'File CSV không có header']);
-    fclose($file);
-    exit;
-}
-
-while ($row = fgetcsv($file)) {
-    if (count($row) === count($headers)) {
-        $data[] = array_combine($headers, array_map('trim', $row));
+try {
+    if (!file_exists($filePath)) throw new Exception("File CSV không tồn tại!");
+    $file = fopen($filePath, 'r');
+    $headers = fgetcsv($file);
+    $data = [];
+    while ($row = fgetcsv($file)) {
+        if (count($row) === count($headers)) $data[] = array_combine($headers, array_map('trim', $row));
     }
+    fclose($file);
+    echo json_encode($data);
+} catch (Exception $e) {
+    echo json_encode(['error' => $e->getMessage()]);
 }
-fclose($file);
-
-if (empty($data)) {
-    echo json_encode(['error' => 'File CSV trống hoặc dữ liệu không hợp lệ']);
-    exit;
-}
-
-echo json_encode($data);
-?>
+exit;
