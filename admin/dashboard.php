@@ -17,15 +17,16 @@ $result = $conn->query("SELECT * FROM courses");
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Học phần <?php echo $username; ?></title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../style.css">
 </head>
 <body>
     <header>
         <div class="logo">TOEIC Learning</div>
         <div class="auth">
             <span><?php echo $username; ?></span>
+            <a href="../profile.php">Hồ sơ</a> 
             <a href="../auth/logout.php">Đăng xuất</a>
-            <a href="#">Liên hệ</a>
+            <a href="../contact.php">Liên hệ</a>
         </div>
     </header>
     <section class="hero">

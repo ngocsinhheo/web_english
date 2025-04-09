@@ -14,9 +14,18 @@ if (!isset($_SESSION['user_id'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chọn Bài Thi</title>
-    <link rel="stylesheet" href="../style.css"> <!-- Sửa lại đường dẫn nếu cần -->
+    <link rel="stylesheet" href="../style.css"> 
 </head>
 <body>
+    <header>
+        <div class="logo">TOEIC Learning</div>
+        <div class="auth">
+            <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="../profile.php">Hồ sơ</a> 
+            <a href="../auth/logout.php">Đăng xuất</a>
+            <a href="#">Liên hệ</a>
+        </div>
+    </header>
     <div class="select-test-container">
         <h2>Chọn Bài Thi</h2>
         <button id="refreshBtn" class="refresh-btn">Làm mới</button>

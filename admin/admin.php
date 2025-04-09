@@ -2,6 +2,11 @@
 session_start();
 require_once '../config/config.php';
 
+// Bật hiển thị lỗi để debug
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
@@ -10,8 +15,42 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
 function handleFileUpload($file, $targetDir) {
     $fileName = basename($file["name"]);
     $targetPath = $targetDir . $fileName;
+
+    // Kiểm tra loại tệp
+    $allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'video/mp4'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        throw new Exception("Loại tệp không được hỗ trợ!");
+    }
+
+    // Kiểm tra kích thước tệp (tối đa 5MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        throw new Exception("Tệp quá lớn! Tối đa 5MB.");
+    }
+
     return move_uploaded_file($file["tmp_name"], $targetPath) ? $targetPath : false;
 }
+
+// Xử lý phản hồi tin nhắn
+if (isset($_POST['reply_message'])) {
+    try {
+        $contact_id = filter_var($_POST['contact_id'], FILTER_SANITIZE_NUMBER_INT);
+        $reply = filter_var($_POST['reply'], FILTER_SANITIZE_STRING);
+
+        $stmt = $conn->prepare("UPDATE contacts SET reply = ?, status = 'replied', replied_at = NOW() WHERE id = ?");
+        $stmt->bind_param("si", $reply, $contact_id);
+        $stmt->execute() ? $success = "Phản hồi thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+
+        // Tải lại trang để cập nhật giao diện
+        header("Location: admin.php");
+        exit();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Truy vấn tin nhắn liên hệ
+$result_contacts = $conn->query("SELECT id, user_id, username, message, status, reply, created_at, replied_at FROM contacts ORDER BY created_at DESC");
 
 // Thêm người dùng
 if (isset($_POST['add_user'])) {
@@ -81,7 +120,7 @@ if (isset($_GET['delete_course'])) {
 
 // Truy vấn dữ liệu
 $result_users = $conn->query("SELECT id, username, email FROM users WHERE role != 'admin'");
-$total_users = $result_users->num_rows;
+$total_users = $result_users->num_rows ?? 0;
 
 $result_courses = $conn->query("SELECT id, title, description, price, teacher_name, image, content_file, video_file FROM courses");
 $popular_courses = [];
@@ -109,6 +148,7 @@ $result_courses->data_seek(0);
                 <li onclick="showSection('users')">Quản Lý Người Dùng</li>
                 <li onclick="showSection('products')">Quản Lý Khóa Học</li>
                 <li onclick="showSection('test')">Quản Lý Bài Thi</li>
+                <li onclick="showSection('contacts')">Quản Lý Tin Nhắn</li>
                 <li><a href="../auth/logout.php">Đăng xuất</a></li>
             </ul>
         </div>
@@ -168,17 +208,55 @@ $result_courses->data_seek(0);
                             <td><?php echo htmlspecialchars($course['title']); ?></td>
                             <td><?php echo number_format($course['price'], 0, ',', '.'); ?> VNĐ</td>
                             <td><?php echo htmlspecialchars($course['teacher_name']); ?></td>
-                            <td><img src="<?php echo $course['image']; ?>" alt="Ảnh"></td>
+                            <td>
+                                <?php if (file_exists($course['image'])): ?>
+                                    <img src="<?php echo $course['image']; ?>" alt="Ảnh">
+                                <?php else: ?>
+                                    <span>Hình ảnh không tồn tại</span>
+                                <?php endif; ?>
+                            </td>
                             <td><a href="<?php echo $course['content_file']; ?>" target="_blank">Xem</a></td>
                             <td><a href="<?php echo $course['video_file']; ?>" target="_blank">Xem</a></td>
                             <td><a class="delete-btn" href="?delete_course=<?php echo $course['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a></td>
                         </tr>
                     <?php endwhile; ?>
                 </table>
+                <?php $result_courses->close(); ?>
             </div>
 
             <div id="test" class="content-section">
-                <?php include '../test/admin.php'; ?>
+                <?php // include '../test/admin.php'; ?>
+            </div>
+
+            <div id="contacts" class="content-section">
+                <h1>Quản Lý Tin Nhắn Liên Hệ</h1>
+                <table>
+                    <tr><th>ID</th><th>Người gửi</th><th>Tin nhắn</th><th>Trạng thái</th><th>Phản hồi</th><th>Thời gian gửi</th><th>Hành động</th></tr>
+                    <?php while ($contact = $result_contacts->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo $contact['id']; ?></td>
+                            <td><?php echo htmlspecialchars($contact['username']); ?></td>
+                            <td><?php echo htmlspecialchars($contact['message']); ?></td>
+                            <td><?php echo $contact['status'] === 'pending' ? 'Chờ xử lý' : 'Đã phản hồi'; ?></td>
+                            <td><?php echo $contact['reply'] ? htmlspecialchars($contact['reply']) : 'Chưa có'; ?></td>
+                            <td><?php echo date('d/m/Y H:i', strtotime($contact['created_at'])); ?></td>
+                            <td>
+                                <?php if ($contact['status'] === 'pending'): ?>
+                                    <button class="reply-btn" data-id="<?php echo $contact['id']; ?>" data-message="<?php echo htmlspecialchars(json_encode($contact['message'], JSON_HEX_QUOT | JSON_HEX_APOS), ENT_QUOTES, 'UTF-8'); ?>">Phản hồi</button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                </table>
+
+                <div id="replyForm" style="display: none; margin-top: 20px;">
+                    <form method="POST">
+                        <input type="hidden" name="contact_id" id="contactId">
+                        <p><strong>Tin nhắn:</strong> <span id="messagePreview"></span></p>
+                        <textarea name="reply" placeholder="Nhập phản hồi của bạn" required></textarea>
+                        <button type="submit" name="reply_message">Gửi phản hồi</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -191,7 +269,29 @@ $result_courses->data_seek(0);
             document.querySelector(`li[onclick="showSection('${sectionId}')"]`).classList.add('active');
         }
 
+        function showReplyForm(id, message) {
+            console.log('showReplyForm called with id:', id, 'message:', message); // Debug
+            const replyForm = document.getElementById('replyForm');
+            if (replyForm) {
+                replyForm.style.display = 'block';
+                document.getElementById('contactId').value = id;
+                document.getElementById('messagePreview').textContent = message;
+            } else {
+                console.error('replyForm element not found'); // Debug
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            // Gán sự kiện cho các nút "Phản hồi"
+            document.querySelectorAll('.reply-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    const message = JSON.parse(button.getAttribute('data-message'));
+                    showReplyForm(id, message);
+                });
+            });
+
+            // Biểu đồ người dùng
             new Chart(document.getElementById('dashboardUserChart'), {
                 type: 'bar',
                 data: {
@@ -205,13 +305,16 @@ $result_courses->data_seek(0);
                 options: { scales: { y: { beginAtZero: true } } }
             });
 
+            // Biểu đồ khóa học phổ biến
+            const courseLabels = <?php echo json_encode(array_keys($popular_courses)); ?>;
+            const courseData = <?php echo json_encode(array_values($popular_courses)); ?>;
             new Chart(document.getElementById('popularCoursesChart'), {
                 type: 'bar',
                 data: {
-                    labels: [<?php echo "'" . implode("','", array_keys($popular_courses)) . "'"; ?>],
+                    labels: courseLabels.length ? courseLabels : ['Không có dữ liệu'],
                     datasets: [{
                         label: 'Lượt thích',
-                        data: [<?php echo implode(',', array_values($popular_courses)); ?>],
+                        data: courseData.length ? courseData : [0],
                         backgroundColor: '#9966FF'
                     }]
                 },
