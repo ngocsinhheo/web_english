@@ -679,3 +679,18 @@ video {
 .action-btn:hover { 
     background: #2980b9; 
 }
+textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #f9fbfd;
+    transition: border-color 0.3s ease;
+    min-height: 100px;
+    resize: vertical;
+}
+textarea:focus {
+    border-color: #007bff;
+    outline: none;
+}

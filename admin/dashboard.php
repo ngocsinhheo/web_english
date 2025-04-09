@@ -24,8 +24,9 @@ $result = $conn->query("SELECT * FROM courses");
         <div class="logo">TOEIC Learning</div>
         <div class="auth">
             <span><?php echo $username; ?></span>
+            <a href="../profile.php">Hồ sơ</a> 
             <a href="../auth/logout.php">Đăng xuất</a>
-            <a href="#">Liên hệ</a>
+            <a href="../contact.php">Liên hệ</a>
         </div>
     </header>
     <section class="hero">
