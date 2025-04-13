@@ -27,7 +27,7 @@ $sub_lessons = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($course['title']); ?> - TOEIC Learning</title>
+    <title><?php echo htmlspecialchars($course['title']); ?> - English Learning</title>
     <link rel="stylesheet" href="../style.css">
     <style>
         body {
@@ -35,6 +35,10 @@ $sub_lessons = $stmt->get_result();
             font-family: Arial, sans-serif;
             background-color: #f4f4f4;
         }
+        .logo a {
+    color: #fff; /* Giữ màu chữ trắng như header */
+    text-decoration: none; /* Bỏ gạch chân */
+}
 
         .course-detail-container {
             width: 98%;
@@ -213,7 +217,7 @@ $sub_lessons = $stmt->get_result();
 </head>
 <body>
     <header>
-        <div class="logo">TOEIC Learning</div>
+    <div class="logo"><a href="dashboard.php">English Learning</a></div>
         <div class="auth">
             <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
             <a href="../admin/dashboard.php">Dashboard</a>
@@ -272,7 +276,7 @@ $sub_lessons = $stmt->get_result();
         <a href="../admin/dashboard.php" class="back-btn">Quay lại Dashboard</a>
     </div>
 
-    <footer>© 2025 TOEIC Learning</footer>
+    <footer>© 2025 English Learning</footer>
 
     <script>
         document.querySelectorAll('.sub-lesson-header').forEach(header => {

@@ -31,9 +31,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <title>Liên hệ</title>
     <link rel="stylesheet" href="style.css">
 </head>
+<style>
+.logo a {
+    color: #fff; /* Giữ màu chữ trắng như header */
+    text-decoration: none; /* Bỏ gạch chân */
+} </style>
 <body>
     <header>
-        <div class="logo">TOEIC Learning</div>
+    <div class="logo"><a href="./admin/dashboard.php">English Learning</a></div>
         <div class="auth">
             <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
             <a href="admin/dashboard.php">Dashboard</a>
@@ -49,7 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             <button type="submit">Gửi</button>
         </form>
     </div>
-    <footer>&copy; 2025 TOEIC Learning</footer>
+    <footer>&copy; 2025 English Learning</footer>
 </body>
 </html>
 <?php $conn->close(); ?>

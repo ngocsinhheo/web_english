@@ -206,6 +206,10 @@ table th {
     text-align: center;
     margin: 10px 0;
 }
+.logo a {
+    color: #fff; /* Giữ màu chữ trắng như header */
+    text-decoration: none; /* Bỏ gạch chân */
+}
 
 footer {
     text-align: center;
@@ -216,7 +220,7 @@ footer {
 </style>
 <body>
     <header>
-        <div class="logo">TOEIC Learning</div>
+    <div class="logo"><a href="./admin/dashboard.php">English Learning</a></div>
         <div class="auth">
             <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
             <a href="../web_english/admin/dashboard.php">Dashboard</a>
@@ -267,7 +271,7 @@ footer {
             <?php endif; ?>
         </div>
     </div>
-    <footer>© 2025 TOEIC Learning</footer>
+    <footer>© 2025 English Learning</footer>
 </body>
 </html>
 

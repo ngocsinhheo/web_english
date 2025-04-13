@@ -773,19 +773,28 @@ $sub_lessons = $stmt->get_result();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($course['title']); ?> - TOEIC Learning</title>
+    <title><?php echo htmlspecialchars($course['title']); ?> - English Learning</title>
     <link rel="stylesheet" href="../style.css">
     <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
         .course-detail-container {
-            max-width: 1000px;
-            margin: 40px auto;
+            width: 98%;
+            max-width: none;
+            margin: 20px auto;
             padding: 20px;
-            background: #fff;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            box-sizing: border-box;
         }
 
         .course-header {
+            width: 100%;
             text-align: center;
             margin-bottom: 30px;
         }
@@ -800,8 +809,31 @@ $sub_lessons = $stmt->get_result();
         .course-header p {
             font-size: 18px;
             color: #7f8c8d;
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
+        }
+
+        .content-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+        }
+
+        .left-content {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .right-content {
+            width: 800px;
+            position: sticky;
+            top: 20px;
+            align-self: flex-start;
+            display: none;
+        }
+
+        .right-content.active {
+            display: block;
         }
 
         .sub-lesson {
@@ -809,6 +841,7 @@ $sub_lessons = $stmt->get_result();
             border: 1px solid #e0e0e0;
             border-radius: 10px;
             overflow: hidden;
+            background: #fff;
         }
 
         .sub-lesson-header {
@@ -845,17 +878,9 @@ $sub_lessons = $stmt->get_result();
             margin-bottom: 15px;
         }
 
-        .sub-lesson-content video {
-            width: 100%;
-            max-width: 600px;
-            border-radius: 10px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .sub-lesson-content a {
+        .document-button {
             display: inline-block;
-            background: linear-gradient(90deg, #28a745, #218838);
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
             color: #fff;
             padding: 10px 20px;
             border-radius: 25px;
@@ -864,75 +889,33 @@ $sub_lessons = $stmt->get_result();
             margin-bottom: 15px;
         }
 
-        .sub-lesson-content a:hover {
-            background: linear-gradient(90deg, #218838, #1e7e34);
+        .document-button:hover {
+            background: linear-gradient(90deg, #27ae60, #219653);
         }
 
-        .test-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9fbfd;
+        .video-container {
+            margin-bottom: 15px;
+        }
+
+        .video-container video {
+            width: 100%;
             border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
 
-        .test-section h4 {
-            font-size: 18px;
-            font-weight: 600;
-            color: #34495e;
-            margin-bottom: 15px;
-        }
-
-        .question {
-            margin-bottom: 15px;
-        }
-
-        .question p {
-            font-size: 16px;
-            font-weight: 500;
-            color: #2c3e50;
-            margin-bottom: 10px;
-        }
-
-        .option {
-            margin: 5px 0;
-            display: flex;
-            align-items: center;
-        }
-
-        .option input {
-            margin-right: 10px;
-        }
-
-        .test-section button {
+        .test-button {
+            display: inline-block;
             background: linear-gradient(90deg, #3498db, #2980b9);
             color: #fff;
-            border: none;
             padding: 10px 20px;
             border-radius: 25px;
+            text-decoration: none;
             font-weight: 600;
-            cursor: pointer;
+            margin-top: 10px;
         }
 
-        .test-section button:hover {
+        .test-button:hover {
             background: linear-gradient(90deg, #2980b9, #2471a3);
-        }
-
-        .test-result {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 600;
-        }
-
-        .test-result.success {
-            background: #d4edda;
-            color: #28a745;
-        }
-
-        .test-result.error {
-            background: #f8d7da;
-            color: #dc3545;
         }
 
         .back-btn {
@@ -954,14 +937,21 @@ $sub_lessons = $stmt->get_result();
 
         @media (max-width: 768px) {
             .course-detail-container {
-                padding: 15px;
+                width: 100%;
+                margin: 10px auto;
+                padding: 10px;
             }
 
-            .course-header h1 {
-                font-size: 28px;
+            .content-wrapper {
+                flex-direction: column;
             }
 
-            .sub-lesson-content video {
+            .right-content {
+                width: 100%;
+                position: static;
+            }
+
+            .video-container video {
                 max-width: 100%;
             }
         }
@@ -969,7 +959,7 @@ $sub_lessons = $stmt->get_result();
 </head>
 <body>
     <header>
-        <div class="logo">TOEIC Learning</div>
+        <div class="logo">English Learning</div>
         <div class="auth">
             <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
             <a href="../admin/dashboard.php">Dashboard</a>
@@ -983,114 +973,109 @@ $sub_lessons = $stmt->get_result();
             <p><?php echo htmlspecialchars($course['description']); ?></p>
         </div>
 
-        <div class="sub-lessons">
-            <?php if ($sub_lessons->num_rows > 0): ?>
-                <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
-                    <div class="sub-lesson">
-                        <div class="sub-lesson-header">
-                            <h3><?php echo htmlspecialchars($lesson['title']); ?></h3>
-                            <span>▼</span>
-                        </div>
-                        <div class="sub-lesson-content">
-                            <p><?php echo htmlspecialchars($lesson['description']); ?></p>
-                            <?php if ($lesson['video_file']): ?>
+        <div class="content-wrapper">
+            <div class="left-content">
+                <div class="sub-lessons">
+                    <?php if ($sub_lessons->num_rows > 0): ?>
+                        <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
+                            <div class="sub-lesson">
+                                <div class="sub-lesson-header">
+                                    <h3><?php echo htmlspecialchars($lesson['title']); ?></h3>
+                                    <span>▼</span>
+                                </div>
+                                <div class="sub-lesson-content">
+                                    <?php if ($lesson['content_file']): ?>
+                                        <a href="<?php echo htmlspecialchars($lesson['content_file']); ?>" class="document-button" target="_blank">Tài liệu học</a>
+                                    <?php endif; ?>
+                                    <p><?php echo htmlspecialchars($lesson['description']); ?></p>
+                                    <a href="test_page.php?sub_lesson_id=<?php echo $lesson['id']; ?>&course_id=<?php echo $course_id; ?>" class="test-button">Làm bài kiểm tra</a>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <p>Chưa có bài học con nào cho khóa học này.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="right-content">
+                <?php if ($sub_lessons->num_rows > 0): ?>
+                    <?php $sub_lessons->data_seek(0); ?>
+                    <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
+                        <?php if ($lesson['video_file']): ?>
+                            <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
                                 <video controls>
                                     <source src="<?php echo htmlspecialchars($lesson['video_file']); ?>" type="video/mp4">
                                     Trình duyệt không hỗ trợ video.
                                 </video>
-                            <?php endif; ?>
-                            <?php if ($lesson['content_file']): ?>
-                                <a href="<?php echo htmlspecialchars($lesson['content_file']); ?>" target="_blank">📄 Tải tài liệu</a>
-                            <?php endif; ?>
-
-                            <!-- Bài kiểm tra -->
-                            <div class="test-section">
-                                <h4>Bài kiểm tra</h4>
-                                <?php
-                                $test_stmt = $conn->prepare("SELECT * FROM sub_lesson_tests WHERE sub_lesson_id = ?");
-                                $test_stmt->bind_param("i", $lesson['id']);
-                                $test_stmt->execute();
-                                $questions = $test_stmt->get_result();
-                                ?>
-                                <form class="test-form" data-lesson-id="<?php echo $lesson['id']; ?>">
-                                    <?php if ($questions->num_rows > 0): ?>
-                                        <?php while ($question = $questions->fetch_assoc()): ?>
-                                            <div class="question">
-                                                <p><?php echo htmlspecialchars($question['question_text']); ?></p>
-                                                <div class="option">
-                                                    <input type="radio" name="q<?php echo $question['id']; ?>" value="A" id="q<?php echo $question['id']; ?>_a">
-                                                    <label for="q<?php echo $question['id']; ?>_a"><?php echo htmlspecialchars($question['option_a']); ?></label>
-                                                </div>
-                                                <div class="option">
-                                                    <input type="radio" name="q<?php echo $question['id']; ?>" value="B" id="q<?php echo $question['id']; ?>_b">
-                                                    <label for="q<?php echo $question['id']; ?>_b"><?php echo htmlspecialchars($question['option_b']); ?></label>
-                                                </div>
-                                                <div class="option">
-                                                    <input type="radio" name="q<?php echo $question['id']; ?>" value="C" id="q<?php echo $question['id']; ?>_c">
-                                                    <label for="q<?php echo $question['id']; ?>_c"><?php echo htmlspecialchars($question['option_c']); ?></label>
-                                                </div>
-                                                <div class="option">
-                                                    <input type="radio" name="q<?php echo $question['id']; ?>" value="D" id="q<?php echo $question['id']; ?>_d">
-                                                    <label for="q<?php echo $question['id']; ?>_d"><?php echo htmlspecialchars($question['option_d']); ?></label>
-                                                </div>
-                                            </div>
-                                        <?php endwhile; ?>
-                                        <button type="submit">Nộp bài</button>
-                                    <?php else: ?>
-                                        <p>Chưa có câu hỏi kiểm tra.</p>
-                                    <?php endif; ?>
-                                </form>
-                                <div class="test-result" id="result-<?php echo $lesson['id']; ?>"></div>
-                                <?php $test_stmt->close(); ?>
                             </div>
-                        </div>
-                    </div>
-                <?php endwhile; ?>
-            <?php else: ?>
-                <p>Chưa có bài học con nào cho khóa học này.</p>
-            <?php endif; ?>
+                        <?php endif; ?>
+                    <?php endwhile; ?>
+                <?php endif; ?>
+            </div>
         </div>
 
         <a href="../admin/dashboard.php" class="back-btn">Quay lại Dashboard</a>
     </div>
 
-    <footer>© 2025 TOEIC Learning</footer>
+    <footer>© 2025 English Learning</footer>
 
     <script>
-        // Mở rộng/thu gọn bài học
         document.querySelectorAll('.sub-lesson-header').forEach(header => {
             header.addEventListener('click', () => {
                 const content = header.nextElementSibling;
                 const arrow = header.querySelector('span');
-                content.classList.toggle('active');
-                arrow.textContent = content.classList.contains('active') ? '▲' : '▼';
-            });
-        });
+                const isActive = content.classList.contains('active');
+                const rightContent = document.querySelector('.right-content');
 
-        // Xử lý nộp bài kiểm tra
-        document.querySelectorAll('.test-form').forEach(form => {
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const lessonId = form.dataset.lessonId;
-                const resultDiv = document.getElementById(`result-${lessonId}`);
-                const formData = new FormData(form);
+                // Nếu bài học con đang mở, đóng nó và dừng video
+                if (isActive) {
+                    content.classList.remove('active');
+                    arrow.textContent = '▼';
 
-                // Lấy đáp án người dùng
-                const answers = {};
-                formData.forEach((value, key) => {
-                    answers[key] = value;
-                });
+                    // Dừng video của bài học con này nếu nó đang hiển thị
+                    const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
+                    if (lessonId) {
+                        const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
+                        if (videoContainer && videoContainer.style.display === 'block') {
+                            const video = videoContainer.querySelector('video');
+                            if (video) {
+                                video.pause();
+                            }
+                            videoContainer.style.display = 'none';
+                            rightContent.classList.remove('active');
+                        }
+                    }
 
-                // Gửi yêu cầu kiểm tra đáp án
-                const response = await fetch('check_test.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ lesson_id: lessonId, answers })
-                });
+                    // Kiểm tra nếu không còn bài học con nào mở, ẩn right-content
+                    const anyActive = document.querySelector('.sub-lesson-content.active');
+                    if (!anyActive) {
+                        rightContent.classList.remove('active');
+                    }
+                } else {
+                    // Mở bài học con
+                    content.classList.add('active');
+                    arrow.textContent = '▲';
 
-                const result = await response.json();
-                resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
-                resultDiv.textContent = result.message;
+                    // Dừng tất cả các video khác và ẩn chúng
+                    document.querySelectorAll('.video-container').forEach(v => {
+                        const video = v.querySelector('video');
+                        if (video) {
+                            video.pause();
+                        }
+                        v.style.display = 'none';
+                    });
+
+                    // Hiển thị video của bài học con này (nếu có)
+                    const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
+                    if (lessonId) {
+                        const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
+                        if (videoContainer) {
+                            videoContainer.style.display = 'block';
+                            rightContent.classList.add('active');
+                        }
+                    }
+                }
             });
         });
     </script>
@@ -1168,7 +1153,7 @@ $result = $conn->query("SELECT * FROM courses");
 </head>
 <body>
     <header>
-        <div class="logo">TOEIC Learning</div>
+        <div class="logo">English Learning</div>
         <div class="auth">
             <span><?php echo $username; ?></span>
             <a href="../profile.php">Hồ sơ</a> 
@@ -1193,7 +1178,7 @@ $result = $conn->query("SELECT * FROM courses");
             <?php endwhile; ?>
         </div>
     </section>
-    <footer>&copy; 2025 TOEIC Learning</footer>
+    <footer>&copy; 2025 English Learning</footer>
 </body>
 </html>
 
@@ -1376,6 +1361,220 @@ td img {
     border-radius: 15px; 
     box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
 }
+
+[Tệp] C:\xampp\htdocs\web_english\admin\test_page.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+$sub_lesson_id = filter_var($_GET['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+$course_id = filter_var($_GET['course_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+
+if (!$sub_lesson_id || !$course_id) {
+    die("Thiếu thông tin bài học!");
+}
+
+// Lấy thông tin bài học con
+$stmt = $conn->prepare("SELECT * FROM sub_lessons WHERE id = ?");
+$stmt->bind_param("i", $sub_lesson_id);
+$stmt->execute();
+$sub_lesson = $stmt->get_result()->fetch_assoc() ?: die("Bài học không tồn tại!");
+
+// Lấy danh sách câu hỏi kiểm tra
+$test_stmt = $conn->prepare("SELECT * FROM sub_lesson_tests WHERE sub_lesson_id = ?");
+$test_stmt->bind_param("i", $sub_lesson_id);
+$test_stmt->execute();
+$questions = $test_stmt->get_result();
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài kiểm tra: <?php echo htmlspecialchars($sub_lesson['title']); ?> - TOEIC Learning</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .test-container {
+            width: 90%;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-container h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .question {
+            margin-bottom: 20px;
+        }
+
+        .question p {
+            font-size: 16px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .option {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .option input {
+            margin-right: 10px;
+        }
+
+        .test-container button {
+            display: block;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 20px auto;
+        }
+
+        .test-container button:hover {
+            background: linear-gradient(90deg, #2980b9, #2471a3);
+        }
+
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .test-result.success {
+            background: #d4edda;
+            color: #28a745;
+        }
+
+        .test-result.error {
+            background: #f8d7da;
+            color: #dc3545;
+        }
+
+        .back-btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            text-align: center;
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            color: #fff;
+            padding: 12px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-btn:hover {
+            background: linear-gradient(90deg, #c82333, #bd2130);
+        }
+
+        @media (max-width: 768px) {
+            .test-container {
+                width: 100%;
+                margin: 20px auto;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h2>Bài kiểm tra: <?php echo htmlspecialchars($sub_lesson['title']); ?></h2>
+        <form id="test-form" data-lesson-id="<?php echo $sub_lesson_id; ?>">
+            <?php if ($questions->num_rows > 0): ?>
+                <?php while ($question = $questions->fetch_assoc()): ?>
+                    <div class="question">
+                        <p><?php echo htmlspecialchars($question['question_text']); ?></p>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="A" id="q<?php echo $question['id']; ?>_a">
+                            <label for="q<?php echo $question['id']; ?>_a"><?php echo htmlspecialchars($question['option_a']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="B" id="q<?php echo $question['id']; ?>_b">
+                            <label for="q<?php echo $question['id']; ?>_b"><?php echo htmlspecialchars($question['option_b']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="C" id="q<?php echo $question['id']; ?>_c">
+                            <label for="q<?php echo $question['id']; ?>_c"><?php echo htmlspecialchars($question['option_c']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="D" id="q<?php echo $question['id']; ?>_d">
+                            <label for="q<?php echo $question['id']; ?>_d"><?php echo htmlspecialchars($question['option_d']); ?></label>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+                <button type="submit">Nộp bài</button>
+            <?php else: ?>
+                <p>Chưa có câu hỏi kiểm tra.</p>
+            <?php endif; ?>
+        </form>
+        <div class="test-result" id="test-result"></div>
+        <a href="course_detail.php?id=<?php echo $course_id; ?>" class="back-btn" id="back-btn" style="display: none;">Quay lại bài học</a>
+    </div>
+
+    <script>
+        document.getElementById('test-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const lessonId = e.target.dataset.lessonId;
+            const resultDiv = document.getElementById('test-result');
+            const formData = new FormData(e.target);
+
+            const answers = {};
+            formData.forEach((value, key) => {
+                answers[key] = value;
+            });
+
+            const response = await fetch('check_test.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lesson_id: lessonId, answers })
+            });
+
+            const result = await response.json();
+            resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
+            resultDiv.textContent = result.message;
+            resultDiv.style.display = 'block';
+
+            // Ẩn form và hiển thị nút quay lại
+            document.getElementById('test-form').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
+<?php $stmt->close(); $test_stmt->close(); $conn->close(); ?>
+
+[Thư mục] C:\xampp\htdocs\web_english\admin\uploads
 
 [Thư mục] C:\xampp\htdocs\web_english\assets
 
