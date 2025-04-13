@@ -212,6 +212,8 @@ $sub_lessons = $stmt->get_result();
     </style>
 </head>
 <body>
+<?php include '../searchbar/index.php'; ?>
+<script src="../searchbar/js/script.js"></script>
     <header>
         <div class="logo">TOEIC Learning</div>
         <div class="auth">

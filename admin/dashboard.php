@@ -20,6 +20,7 @@ $result = $conn->query("SELECT * FROM courses");
     <link rel="stylesheet" href="../style.css">
 </head>
 <body>
+<?php include '../searchbar/index.php'; ?>
     <header>
         <div class="logo">TOEIC Learning</div>
         <div class="auth">
@@ -47,5 +48,6 @@ $result = $conn->query("SELECT * FROM courses");
         </div>
     </section>
     <footer>&copy; 2025 TOEIC Learning</footer>
+    <script src="../searchbar/js/script.js"></script>
 </body>
 </html>

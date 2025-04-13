@@ -1,0 +1,130 @@
+
+.search-wrapper {
+    position: fixed;
+    z-index: 1000;
+    left: 20px;
+    top: 20px;
+    user-select: none; /* Ngăn chọn văn bản khi kéo */
+}
+
+.search-icon {
+    background-color: #007bff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+
+.search-icon.hidden {
+    display: none;
+}
+
+.search-bar {
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    width: 280px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer; /* Đổi thành pointer để rõ ràng khi nhấn */
+}
+
+.search-bar.hidden {
+    display: none;
+}
+
+.search-bar input, .search-bar select, .search-bar button {
+    width: 100%;
+    padding: 8px;
+    margin: 5px 0;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.search-bar select {
+    appearance: none;
+    background: url('data:image/svg+xml;utf8,<svg fill="black" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>') no-repeat right 10px center;
+}
+
+.search-bar button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.search-bar button:hover {
+    background-color: #0056b3;
+}
+.result {
+    margin-top: 10px;
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    width: 100%;
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 14px;
+    text-align: left;
+}
+
+.result h3 {
+    margin: 0 0 5px;
+    font-size: 16px;
+    color: #333;
+}
+
+.result p {
+    margin: 5px 0;
+    color: #555;
+}
+
+.result button {
+    padding: 5px 10px;
+    margin: 5px 5px 0 0;
+    font-size: 12px;
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1001;
+}
+
+.modal-content {
+    background-color: white;
+    margin: 15% auto;
+    padding: 20px;
+    width: 50%;
+    max-width: 500px;
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    position: relative;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 20px;
+    cursor: pointer;
+    color: #333;
+}
+
+.close:hover {
+    color: #007bff;
+}
