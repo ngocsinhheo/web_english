@@ -1,0 +1,3405 @@
+
+[Thư mục] C:\xampp\htdocs\web_english\admin
+
+[Tệp] C:\xampp\htdocs\web_english\admin\admin.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+// Bật hiển thị lỗi để debug
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+// Hàm xử lý upload file
+function handleFileUpload($file, $targetDir) {
+    $fileName = basename($file["name"]);
+    $targetPath = $targetDir . $fileName;
+
+    // Kiểm tra loại tệp
+    $allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'video/mp4'];
+    if (!in_array($file['type'], $allowedTypes)) {
+        throw new Exception("Loại tệp không được hỗ trợ!");
+    }
+
+    // Kiểm tra kích thước tệp (tối đa 5MB)
+    if ($file['size'] > 5 * 1024 * 1024) {
+        throw new Exception("Tệp quá lớn! Tối đa 5MB.");
+    }
+
+    return move_uploaded_file($file["tmp_name"], $targetPath) ? $targetPath : false;
+}
+
+// Xử lý phản hồi tin nhắn
+if (isset($_POST['reply_message'])) {
+    try {
+        $contact_id = filter_var($_POST['contact_id'], FILTER_SANITIZE_NUMBER_INT);
+        $reply = filter_var($_POST['reply'], FILTER_SANITIZE_STRING);
+
+        $stmt = $conn->prepare("UPDATE contacts SET reply = ?, status = 'replied', replied_at = NOW() WHERE id = ?");
+        $stmt->bind_param("si", $reply, $contact_id);
+        $stmt->execute() ? $success = "Phản hồi thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+
+        // Tải lại trang để cập nhật giao diện
+        header("Location: admin.php");
+        exit();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý thêm người dùng
+if (isset($_POST['add_user'])) {
+    try {
+        $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, 'user')");
+        $stmt->bind_param("sss", $username, $email, $password);
+        $stmt->execute() ? $success = "Thêm người dùng thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa người dùng
+if (isset($_GET['delete_user'])) {
+    try {
+        $user_id = filter_var($_GET['delete_user'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role != 'admin'");
+        $stmt->bind_param("i", $user_id);
+        $stmt->execute() ? $success = "Xóa người dùng thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý thêm khóa học
+if (isset($_POST['add_course'])) {
+    try {
+        $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+        $description = filter_var($_POST['description'], FILTER_SANITIZE_STRING);
+        $teacher_name = filter_var($_POST['teacher_name'], FILTER_SANITIZE_STRING);
+        $price = filter_var($_POST['price'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
+        $target_dir = "../uploads/";
+        
+        $image = handleFileUpload($_FILES["image"], $target_dir);
+        $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
+        $video_file = handleFileUpload($_FILES["video_file"], $target_dir);
+
+        if (!$image || !$content_file || !$video_file) throw new Exception("Lỗi upload file!");
+
+        $stmt = $conn->prepare("INSERT INTO courses (title, description, price, teacher_name, image, content_file, video_file) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("ssdssss", $title, $description, $price, $teacher_name, $image, $content_file, $video_file);
+        $stmt->execute() ? $success = "Thêm khóa học thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý thêm bài học con
+if (isset($_POST['add_sub_lesson'])) {
+    try {
+        $course_id = filter_var($_POST['course_id'], FILTER_SANITIZE_NUMBER_INT);
+        $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+        $description = filter_var($_POST['description'], FILTER_SANITIZE_STRING);
+        $order_number = filter_var($_POST['order_number'], FILTER_SANITIZE_NUMBER_INT);
+        $target_dir = "../uploads/";
+
+        $video_file = handleFileUpload($_FILES["video_file"], $target_dir);
+        $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
+
+        if (!$video_file || !$content_file) throw new Exception("Lỗi upload file!");
+
+        $stmt = $conn->prepare("INSERT INTO sub_lessons (course_id, title, description, video_file, content_file, order_number) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssi", $course_id, $title, $description, $video_file, $content_file, $order_number);
+        $stmt->execute() ? $success = "Thêm bài học con thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý thêm câu hỏi kiểm tra
+if (isset($_POST['add_test_question'])) {
+    try {
+        $sub_lesson_id = filter_var($_POST['sub_lesson_id'], FILTER_SANITIZE_NUMBER_INT);
+        $question_text = filter_var($_POST['question_text'], FILTER_SANITIZE_STRING);
+        $option_a = filter_var($_POST['option_a'], FILTER_SANITIZE_STRING);
+        $option_b = filter_var($_POST['option_b'], FILTER_SANITIZE_STRING);
+        $option_c = filter_var($_POST['option_c'], FILTER_SANITIZE_STRING);
+        $option_d = filter_var($_POST['option_d'], FILTER_SANITIZE_STRING);
+        $correct_answer = filter_var($_POST['correct_answer'], FILTER_SANITIZE_STRING);
+
+        $stmt = $conn->prepare("INSERT INTO sub_lesson_tests (sub_lesson_id, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
+        $stmt->execute() ? $success = "Thêm câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa khóa học
+if (isset($_GET['delete_course'])) {
+    try {
+        $course_id = filter_var($_GET['delete_course'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM courses WHERE id = ?");
+        $stmt->bind_param("i", $course_id);
+        $stmt->execute() ? $success = "Xóa khóa học thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa bài học con
+if (isset($_GET['delete_sub_lesson'])) {
+    try {
+        $sub_lesson_id = filter_var($_GET['delete_sub_lesson'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        $stmt->bind_param("i", $sub_lesson_id);
+        $stmt->execute() ? $success = "Xóa bài học con thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa câu hỏi kiểm tra
+if (isset($_GET['delete_test_question'])) {
+    try {
+        $question_id = filter_var($_GET['delete_test_question'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        $stmt->bind_param("i", $question_id);
+        $stmt->execute() ? $success = "Xóa câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Truy vấn dữ liệu
+$result_users = $conn->query("SELECT id, username, email FROM users WHERE role != 'admin'");
+$total_users = $result_users->num_rows ?? 0;
+
+$result_courses = $conn->query("SELECT id, title, description, price, teacher_name, image, content_file, video_file FROM courses");
+$popular_courses = [];
+while ($course = $result_courses->fetch_assoc()) {
+    $popular_courses[$course['title']] = rand(10, 100); // Giả lập lượt thích
+}
+$result_courses->data_seek(0);
+
+$result_contacts = $conn->query("SELECT id, user_id, username, message, status, reply, created_at, replied_at FROM contacts ORDER BY created_at DESC");
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - TOEIC Learning</title>
+    <link rel="stylesheet" href="../style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar ul li {
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .sidebar ul li:hover {
+            background-color: #34495e;
+        }
+
+        .sidebar ul li.active {
+            background-color: #3498db;
+        }
+
+        .sidebar ul li a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            background-color: #fff;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .main-content h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        form {
+            margin-bottom: 30px;
+        }
+
+        form input, form textarea, form select {
+            padding: 10px;
+            margin: 5px 0;
+            width: calc(100% - 22px);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        form button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background-color: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+
+        table td img {
+            max-width: 100px;
+            border-radius: 5px;
+        }
+
+        table td a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        table td a.delete-btn {
+            color: #dc3545;
+        }
+
+        table td a:hover {
+            text-decoration: underline;
+        }
+
+        .chart-container {
+            max-width: 600px;
+            margin: 20px 0;
+        }
+
+        .success {
+            color: #28a745;
+            padding: 10px;
+            background-color: #e9f7ef;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            background-color: #f8e1e1;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .reply-btn {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .reply-btn:hover {
+            background-color: #2980b9;
+        }
+
+        /* CSS cho accordion */
+        .accordion-header {
+            background: #f9fbfd;
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .accordion-header span {
+            font-size: 18px;
+            color: #3498db;
+        }
+
+        .accordion-content {
+            display: none;
+            padding: 15px;
+            background: #fff;
+        }
+
+        .accordion-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>Admin Panel</h2>
+            <ul>
+                <li onclick="showSection('dashboard')" class="active">Dashboard</li>
+                <li onclick="showSection('users')">Quản Lý Người Dùng</li>
+                <li onclick="showSection('courses')">Quản Lý Khóa Học</li>
+                <li onclick="showSection('contacts')">Quản Lý Tin Nhắn</li>
+                <li><a href="../auth/logout.php">Đăng xuất</a></li>
+            </ul>
+        </div>
+
+        <div class="main-content">
+            <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
+            <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+
+            <div id="dashboard" class="content-section active">
+                <h1>Dashboard</h1>
+                <div class="chart-container">
+                    <canvas id="dashboardUserChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="popularCoursesChart"></canvas>
+                </div>
+            </div>
+
+            <div id="users" class="content-section">
+                <h1>Quản Lý Người Dùng</h1>
+                <form method="POST">
+                    <input type="text" name="username" placeholder="Tên người dùng" required>
+                    <input type="email" name="email" placeholder="Email" required>
+                    <input type="password" name="password" placeholder="Mật khẩu" required>
+                    <button type="submit" name="add_user">Thêm</button>
+                </form>
+                <table>
+                    <tr><th>ID</th><th>Tên</th><th>Email</th><th>Hành động</th></tr>
+                    <?php while ($user = $result_users->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo $user['id']; ?></td>
+                            <td><?php echo htmlspecialchars($user['username']); ?></td>
+                            <td><?php echo htmlspecialchars($user['email']); ?></td>
+                            <td><a class="delete-btn" href="?delete_user=<?php echo $user['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a></td>
+                        </tr>
+                    <?php endwhile; ?>
+                </table>
+            </div>
+
+            <div id="courses" class="content-section">
+                <h1>Quản Lý Khóa Học</h1>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="text" name="title" placeholder="Tên khóa học" required>
+                    <textarea name="description" placeholder="Mô tả" required></textarea>
+                    <input type="text" name="teacher_name" placeholder="Giáo viên" required>
+                    <input type="number" name="price" placeholder="Giá" required>
+                    <input type="file" name="image" accept="image/*" required>
+                    <input type="file" name="content_file" accept=".pdf" required>
+                    <input type="file" name="video_file" accept="video/*" required>
+                    <button type="submit" name="add_course">Thêm</button>
+                </form>
+                <table>
+                    <tr><th>ID</th><th>Tiêu đề</th><th>Giá</th><th>Giáo viên</th><th>Hình ảnh</th><th>Tài liệu</th><th>Video</th><th>Hành động</th></tr>
+                    <?php while ($course = $result_courses->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo $course['id']; ?></td>
+                            <td>
+                                <div class="accordion-header">
+                                    <span><?php echo htmlspecialchars($course['title']); ?></span>
+                                    <span>▼</span>
+                                </div>
+                                <div class="accordion-content">
+                                    <!-- Hiển thị bài học con -->
+                                    <h3 style="margin: 10px 0;">Bài học con</h3>
+                                    <form method="POST" enctype="multipart/form-data">
+                                        <input type="hidden" name="course_id" value="<?php echo $course['id']; ?>">
+                                        <input type="text" name="title" placeholder="Tiêu đề bài học" required>
+                                        <textarea name="description" placeholder="Mô tả bài học" required></textarea>
+                                        <input type="number" name="order_number" placeholder="Thứ tự bài học" required>
+                                        <input type="file" name="video_file" accept="video/*" required>
+                                        <input type="file" name="content_file" accept=".pdf" required>
+                                        <button type="submit" name="add_sub_lesson">Thêm bài học con</button>
+                                    </form>
+                                    <table style="margin-top: 10px;">
+                                        <tr><th>ID</th><th>Tiêu đề</th><th>Mô tả</th><th>Thứ tự</th><th>Tài liệu</th><th>Video</th><th>Hành động</th></tr>
+                                        <?php
+                                        $sub_lessons = $conn->query("SELECT * FROM sub_lessons WHERE course_id = {$course['id']} ORDER BY order_number ASC");
+                                        while ($sub_lesson = $sub_lessons->fetch_assoc()):
+                                        ?>
+                                            <tr>
+                                                <td><?php echo $sub_lesson['id']; ?></td>
+                                                <td>
+                                                    <div class="accordion-header">
+                                                        <span><?php echo htmlspecialchars($sub_lesson['title']); ?></span>
+                                                        <span>▼</span>
+                                                    </div>
+                                                    <div class="accordion-content">
+                                                        <!-- Form thêm câu hỏi kiểm tra -->
+                                                        <h4 style="margin: 10px 0;">Thêm câu hỏi kiểm tra</h4>
+                                                        <form method="POST">
+                                                            <input type="hidden" name="sub_lesson_id" value="<?php echo $sub_lesson['id']; ?>">
+                                                            <textarea name="question_text" placeholder="Câu hỏi" required></textarea>
+                                                            <input type="text" name="option_a" placeholder="Lựa chọn A" required>
+                                                            <input type="text" name="option_b" placeholder="Lựa chọn B" required>
+                                                            <input type="text" name="option_c" placeholder="Lựa chọn C" required>
+                                                            <input type="text" name="option_d" placeholder="Lựa chọn D" required>
+                                                            <select name="correct_answer" required>
+                                                                <option value="A">A</option>
+                                                                <option value="B">B</option>
+                                                                <option value="C">C</option>
+                                                                <option value="D">D</option>
+                                                            </select>
+                                                            <button type="submit" name="add_test_question">Thêm câu hỏi</button>
+                                                        </form>
+                                                        <!-- Danh sách câu hỏi kiểm tra -->
+                                                        <h4 style="margin: 10px 0;">Danh sách câu hỏi kiểm tra</h4>
+                                                        <table style="margin-top: 10px;">
+                                                            <tr><th>ID</th><th>Câu hỏi</th><th>Lựa chọn A</th><th>Lựa chọn B</th><th>Lựa chọn C</th><th>Lựa chọn D</th><th>Đáp án đúng</th><th>Hành động</th></tr>
+                                                            <?php
+                                                            $questions = $conn->query("SELECT * FROM sub_lesson_tests WHERE sub_lesson_id = {$sub_lesson['id']}");
+                                                            while ($question = $questions->fetch_assoc()):
+                                                            ?>
+                                                                <tr>
+                                                                    <td><?php echo $question['id']; ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['question_text']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_a']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_b']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_c']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_d']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['correct_answer']); ?></td>
+                                                                    <td>
+                                                                        <a class="delete-btn" href="?delete_test_question=<?php echo $question['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                                                                    </td>
+                                                                </tr>
+                                                            <?php endwhile; ?>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($sub_lesson['description']); ?></td>
+                                                <td><?php echo $sub_lesson['order_number']; ?></td>
+                                                <td><a href="<?php echo $sub_lesson['content_file']; ?>" target="_blank">Xem</a></td>
+                                                <td><a href="<?php echo $sub_lesson['video_file']; ?>" target="_blank">Xem</a></td>
+                                                <td>
+                                                    <a class="delete-btn" href="?delete_sub_lesson=<?php echo $sub_lesson['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                                                </td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    </table>
+                                </div>
+                            </td>
+                            <td><?php echo number_format($course['price'], 0, ',', '.'); ?> VNĐ</td>
+                            <td><?php echo htmlspecialchars($course['teacher_name']); ?></td>
+                            <td>
+                                <?php if (file_exists($course['image'])): ?>
+                                    <img src="<?php echo $course['image']; ?>" alt="Ảnh">
+                                <?php else: ?>
+                                    <span>Hình ảnh không tồn tại</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><a href="<?php echo $course['content_file']; ?>" target="_blank">Xem</a></td>
+                            <td><a href="<?php echo $course['video_file']; ?>" target="_blank">Xem</a></td>
+                            <td>
+                                <a href="course_detail.php?id=<?php echo $course['id']; ?>">Xem chi tiết</a>
+                                <a class="delete-btn" href="?delete_course=<?php echo $course['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                </table>
+                <?php $result_courses->close(); ?>
+            </div>
+
+            <div id="contacts" class="content-section">
+                <h1>Quản Lý Tin Nhắn Liên Hệ</h1>
+                <table>
+                    <tr><th>ID</th><th>Người gửi</th><th>Tin nhắn</th><th>Trạng thái</th><th>Phản hồi</th><th>Thời gian gửi</th><th>Hành động</th></tr>
+                    <?php while ($contact = $result_contacts->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo $contact['id']; ?></td>
+                            <td><?php echo htmlspecialchars($contact['username']); ?></td>
+                            <td><?php echo htmlspecialchars($contact['message']); ?></td>
+                            <td><?php echo $contact['status'] === 'pending' ? 'Chờ xử lý' : 'Đã phản hồi'; ?></td>
+                            <td><?php echo $contact['reply'] ? htmlspecialchars($contact['reply']) : 'Chưa có'; ?></td>
+                            <td><?php echo date('d/m/Y H:i', strtotime($contact['created_at'])); ?></td>
+                            <td>
+                                <?php if ($contact['status'] === 'pending'): ?>
+                                    <button class="reply-btn" data-id="<?php echo $contact['id']; ?>" data-message="<?php echo htmlspecialchars(json_encode($contact['message'], JSON_HEX_QUOT | JSON_HEX_APOS), ENT_QUOTES, 'UTF-8'); ?>">Phản hồi</button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                </table>
+
+                <div id="replyForm" style="display: none; margin-top: 20px;">
+                    <form method="POST">
+                        <input type="hidden" name="contact_id" id="contactId">
+                        <p><strong>Tin nhắn:</strong> <span id="messagePreview"></span></p>
+                        <textarea name="reply" placeholder="Nhập phản hồi của bạn" required></textarea>
+                        <button type="submit" name="reply_message">Gửi phản hồi</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            document.querySelector(`li[onclick="showSection('${sectionId}')"]`).classList.add('active');
+        }
+
+        function showReplyForm(id, message) {
+            console.log('showReplyForm called with id:', id, 'message:', message); // Debug
+            const replyForm = document.getElementById('replyForm');
+            if (replyForm) {
+                replyForm.style.display = 'block';
+                document.getElementById('contactId').value = id;
+                document.getElementById('messagePreview').textContent = message;
+            } else {
+                console.error('replyForm element not found'); // Debug
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Gán sự kiện cho các nút "Phản hồi"
+            document.querySelectorAll('.reply-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const id = button.getAttribute('data-id');
+                    const message = JSON.parse(button.getAttribute('data-message'));
+                    showReplyForm(id, message);
+                });
+            });
+
+            // Gán sự kiện cho tất cả các accordion (cả khóa học và bài học con)
+            document.querySelectorAll('.accordion-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const arrow = header.querySelector('span:last-child');
+                    content.classList.toggle('active');
+                    arrow.textContent = content.classList.contains('active') ? '▲' : '▼';
+                });
+            });
+
+            // Biểu đồ người dùng
+            new Chart(document.getElementById('dashboardUserChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['Tổng người dùng', 'Người dùng mới', 'Hoạt động'],
+                    datasets: [{
+                        label: 'Số lượng',
+                        data: [<?php echo $total_users; ?>, <?php echo rand(0, $total_users); ?>, <?php echo rand(0, $total_users); ?>],
+                        backgroundColor: ['#36A2EB', '#4BC0C0', '#FF9F40']
+                    }]
+                },
+                options: { scales: { y: { beginAtZero: true } } }
+            });
+
+            // Biểu đồ khóa học phổ biến
+            const courseLabels = <?php echo json_encode(array_keys($popular_courses)); ?>;
+            const courseData = <?php echo json_encode(array_values($popular_courses)); ?>;
+            new Chart(document.getElementById('popularCoursesChart'), {
+                type: 'bar',
+                data: {
+                    labels: courseLabels.length ? courseLabels : ['Không có dữ liệu'],
+                    datasets: [{
+                        label: 'Lượt thích',
+                        data: courseData.length ? courseData : [0],
+                        backgroundColor: '#9966FF'
+                    }]
+                },
+                options: { scales: { y: { beginAtZero: true } } }
+            });
+        });
+    </script>
+</body>
+</html>
+<?php $conn->close(); ?>
+
+[Tệp] C:\xampp\htdocs\web_english\admin\check_test.php
+Nội dung:
+<?php
+header('Content-Type: application/json');
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    echo json_encode(['success' => false, 'message' => 'Chưa đăng nhập']);
+    exit();
+}
+
+$data = json_decode(file_get_contents('php://input'), true);
+$lesson_id = filter_var($data['lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+$answers = $data['answers'] ?? [];
+
+if (!$lesson_id) {
+    echo json_encode(['success' => false, 'message' => 'ID bài học không hợp lệ']);
+    exit();
+}
+
+// Lấy danh sách câu hỏi và đáp án đúng
+$stmt = $conn->prepare("SELECT id, correct_answer FROM sub_lesson_tests WHERE sub_lesson_id = ?");
+$stmt->bind_param("i", $lesson_id);
+$stmt->execute();
+$questions = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+if (empty($questions)) {
+    echo json_encode(['success' => false, 'message' => 'Không có câu hỏi nào']);
+    exit();
+}
+
+// Tính điểm
+$score = 0;
+$total = count($questions);
+foreach ($questions as $question) {
+    $qid = 'q' . $question['id'];
+    if (isset($answers[$qid]) && $answers[$qid] === $question['correct_answer']) {
+        $score++;
+    }
+}
+
+// Lưu kết quả (tùy chọn)
+$stmt = $conn->prepare("INSERT INTO sub_lesson_test_results (user_id, sub_lesson_id, score, total_questions) VALUES (?, ?, ?, ?)");
+$stmt->bind_param("iiii", $_SESSION['user_id'], $lesson_id, $score, $total);
+$stmt->execute();
+$stmt->close();
+
+echo json_encode([
+    'success' => true,
+    'message' => "Bạn đạt $score/$total điểm!"
+]);
+?>
+
+[Tệp] C:\xampp\htdocs\web_english\admin\course_detail.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+$course_id = filter_var($_GET['id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+
+// Lấy thông tin khóa học
+$stmt = $conn->prepare("SELECT * FROM courses WHERE id = ?");
+$stmt->bind_param("i", $course_id);
+$stmt->execute();
+$course = $stmt->get_result()->fetch_assoc() ?: die("Khóa học không tồn tại!");
+
+// Lấy danh sách bài học con
+$stmt = $conn->prepare("SELECT * FROM sub_lessons WHERE course_id = ? ORDER BY order_number ASC");
+$stmt->bind_param("i", $course_id);
+$stmt->execute();
+$sub_lessons = $stmt->get_result();
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><?php echo htmlspecialchars($course['title']); ?> - English Learning</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .course-detail-container {
+            width: 98%;
+            max-width: none;
+            margin: 20px auto;
+            padding: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            box-sizing: border-box;
+        }
+
+        .course-header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .course-header h1 {
+            font-size: 36px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .course-header p {
+            font-size: 18px;
+            color: #7f8c8d;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .content-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+        }
+
+        .left-content {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .right-content {
+            width: 800px;
+            position: sticky;
+            top: 20px;
+            align-self: flex-start;
+            display: none;
+        }
+
+        .right-content.active {
+            display: block;
+        }
+
+        .sub-lesson {
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .sub-lesson-header {
+            background: #f9fbfd;
+            padding: 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sub-lesson-header h3 {
+            font-size: 20px;
+            color: #34495e;
+        }
+
+        .sub-lesson-header span {
+            font-size: 24px;
+            color: #3498db;
+        }
+
+        .sub-lesson-content {
+            display: none;
+            padding: 20px;
+        }
+
+        .sub-lesson-content.active {
+            display: block;
+        }
+
+        .sub-lesson-content p {
+            font-size: 16px;
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .document-button {
+            display: inline-block;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .document-button:hover {
+            background: linear-gradient(90deg, #27ae60, #219653);
+        }
+
+        .video-container {
+            margin-bottom: 15px;
+        }
+
+        .video-container video {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-button {
+            display: inline-block;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+
+        .test-button:hover {
+            background: linear-gradient(90deg, #2980b9, #2471a3);
+        }
+
+        .back-btn {
+            display: block;
+            width: 200px;
+            margin: 30px auto;
+            text-align: center;
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            color: #fff;
+            padding: 12px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-btn:hover {
+            background: linear-gradient(90deg, #c82333, #bd2130);
+        }
+
+        @media (max-width: 768px) {
+            .course-detail-container {
+                width: 100%;
+                margin: 10px auto;
+                padding: 10px;
+            }
+
+            .content-wrapper {
+                flex-direction: column;
+            }
+
+            .right-content {
+                width: 100%;
+                position: static;
+            }
+
+            .video-container video {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">English Learning</div>
+        <div class="auth">
+            <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="../admin/dashboard.php">Dashboard</a>
+            <a href="../auth/logout.php">Đăng xuất</a>
+        </div>
+    </header>
+
+    <div class="course-detail-container">
+        <div class="course-header">
+            <h1><?php echo htmlspecialchars($course['title']); ?></h1>
+            <p><?php echo htmlspecialchars($course['description']); ?></p>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="left-content">
+                <div class="sub-lessons">
+                    <?php if ($sub_lessons->num_rows > 0): ?>
+                        <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
+                            <div class="sub-lesson">
+                                <div class="sub-lesson-header">
+                                    <h3><?php echo htmlspecialchars($lesson['title']); ?></h3>
+                                    <span>▼</span>
+                                </div>
+                                <div class="sub-lesson-content">
+                                    <?php if ($lesson['content_file']): ?>
+                                        <a href="<?php echo htmlspecialchars($lesson['content_file']); ?>" class="document-button" target="_blank">Tài liệu học</a>
+                                    <?php endif; ?>
+                                    <p><?php echo htmlspecialchars($lesson['description']); ?></p>
+                                    <a href="test_page.php?sub_lesson_id=<?php echo $lesson['id']; ?>&course_id=<?php echo $course_id; ?>" class="test-button">Làm bài kiểm tra</a>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <p>Chưa có bài học con nào cho khóa học này.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <div class="right-content">
+                <?php if ($sub_lessons->num_rows > 0): ?>
+                    <?php $sub_lessons->data_seek(0); ?>
+                    <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
+                        <?php if ($lesson['video_file']): ?>
+                            <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
+                                <video controls>
+                                    <source src="<?php echo htmlspecialchars($lesson['video_file']); ?>" type="video/mp4">
+                                    Trình duyệt không hỗ trợ video.
+                                </video>
+                            </div>
+                        <?php endif; ?>
+                    <?php endwhile; ?>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <a href="../admin/dashboard.php" class="back-btn">Quay lại Dashboard</a>
+    </div>
+
+    <footer>© 2025 English Learning</footer>
+
+    <script>
+        document.querySelectorAll('.sub-lesson-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const content = header.nextElementSibling;
+                const arrow = header.querySelector('span');
+                const isActive = content.classList.contains('active');
+                const rightContent = document.querySelector('.right-content');
+
+                // Nếu bài học con đang mở, đóng nó và dừng video
+                if (isActive) {
+                    content.classList.remove('active');
+                    arrow.textContent = '▼';
+
+                    // Dừng video của bài học con này nếu nó đang hiển thị
+                    const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
+                    if (lessonId) {
+                        const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
+                        if (videoContainer && videoContainer.style.display === 'block') {
+                            const video = videoContainer.querySelector('video');
+                            if (video) {
+                                video.pause();
+                            }
+                            videoContainer.style.display = 'none';
+                            rightContent.classList.remove('active');
+                        }
+                    }
+
+                    // Kiểm tra nếu không còn bài học con nào mở, ẩn right-content
+                    const anyActive = document.querySelector('.sub-lesson-content.active');
+                    if (!anyActive) {
+                        rightContent.classList.remove('active');
+                    }
+                } else {
+                    // Mở bài học con
+                    content.classList.add('active');
+                    arrow.textContent = '▲';
+
+                    // Dừng tất cả các video khác và ẩn chúng
+                    document.querySelectorAll('.video-container').forEach(v => {
+                        const video = v.querySelector('video');
+                        if (video) {
+                            video.pause();
+                        }
+                        v.style.display = 'none';
+                    });
+
+                    // Hiển thị video của bài học con này (nếu có)
+                    const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
+                    if (lessonId) {
+                        const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
+                        if (videoContainer) {
+                            videoContainer.style.display = 'block';
+                            rightContent.classList.add('active');
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+<?php $stmt->close(); $conn->close(); ?>
+
+[Tệp] C:\xampp\htdocs\web_english\admin\create_admin.php
+Nội dung:
+<?php
+// Kết nối đến cơ sở dữ liệu
+$conn = mysqli_connect('localhost', 'root', '', 'toeicdb');
+
+// Kiểm tra kết nối
+if ($conn->connect_error) {
+    die("Kết nối thất bại: " . $conn->connect_error);
+}
+
+// Kiểm tra xem tài khoản admin đã tồn tại chưa
+$sql_check = "SELECT COUNT(*) AS count FROM users WHERE email = 'admin@1'";
+$result_check = $conn->query($sql_check);
+$row = $result_check->fetch_assoc();
+
+if ($row['count'] == 0) {
+    // Tạo tài khoản admin nếu chưa tồn tại
+    $username = 'admin';
+    $email = 'admin@1';
+    $password = '123'; // Mật khẩu gốc
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT); // Mã hóa mật khẩu
+
+    // Thêm tài khoản admin vào cơ sở dữ liệu
+    $sql = "INSERT INTO users (username, email, password, role, created_at) 
+            VALUES (?, ?, ?, 'admin', NOW())";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("sss", $username, $email, $hashed_password);
+
+    if ($stmt->execute()) {
+        echo "Tạo tài khoản admin thành công!";
+    } else {
+        echo "Lỗi: " . $stmt->error;
+    }
+
+    $stmt->close();
+} else {
+    echo "Tài khoản admin đã tồn tại!";
+}
+
+// Đóng kết nối
+$conn->close();
+?>
+
+
+[Tệp] C:\xampp\htdocs\web_english\admin\dashboard.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+$username = $_SESSION['username'];
+$result = $conn->query("SELECT * FROM courses");
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Học phần <?php echo $username; ?></title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">English Learning</div>
+        <div class="auth">
+            <span><?php echo $username; ?></span>
+            <a href="../profile.php">Hồ sơ</a> 
+            <a href="../auth/logout.php">Đăng xuất</a>
+            <a href="../contact.php">Liên hệ</a>
+        </div>
+    </header>
+    <section class="hero">
+        <h1>Chào mừng <?php echo $username; ?>!</h1>
+        <p>Học TOEIC từ 0 đến 800+.</p>
+        <a href="../test/select_test.php" class="btn">Thi thử</a>
+    </section>
+    <section class="courses">
+        <h2>Chọn khóa học</h2>
+        <div class="course-list">
+            <?php while ($row = $result->fetch_assoc()): ?>
+                <div class="course">
+                    <h3><?php echo htmlspecialchars($row['title']); ?></h3>
+                    <p><?php echo htmlspecialchars($row['description']); ?></p>
+                    <a href="course_detail.php?id=<?php echo $row['id']; ?>">Học ngay</a>
+                </div>
+            <?php endwhile; ?>
+        </div>
+    </section>
+    <footer>&copy; 2025 English Learning</footer>
+</body>
+</html>
+
+[Tệp] C:\xampp\htdocs\web_english\admin\style.css
+Nội dung:
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+body { background: #f4f4f4; color: #2c3e50; line-height: 1.6; }
+
+/* Common */
+button, a { cursor: pointer; transition: all 0.3s ease; }
+button:hover, a:hover { transform: translateY(-2px); }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { padding: 12px 15px; border: 1px solid #e0e0e0; text-align: left; }
+.success { 
+    color: #28a745; 
+    background: #d4edda; 
+    padding: 10px; 
+    border-radius: 8px; 
+    text-align: center; 
+    margin-bottom: 20px; 
+}
+.error { 
+    color: #dc3545; 
+    background: #f8d7da; 
+    padding: 10px; 
+    border-radius: 8px; 
+    text-align: center; 
+    margin-bottom: 20px; 
+}
+
+/* Admin Container */
+.container { 
+    display: flex; 
+    min-height: 100vh; 
+    background: #f0f2f5; 
+}
+
+/* Sidebar */
+.sidebar { 
+    width: 280px; 
+    background: linear-gradient(180deg, #2c3e50, #1a252f); 
+    padding: 30px 20px; 
+    color: #fff; 
+    position: fixed; 
+    height: 100%; 
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2); 
+    transition: width 0.3s ease; 
+}
+.sidebar h2 { 
+    font-size: 24px; 
+    font-weight: 700; 
+    margin-bottom: 40px; 
+    text-align: center; 
+    color: #ecf0f1; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+}
+.sidebar ul { 
+    list-style: none; 
+}
+.sidebar li { 
+    padding: 15px 20px; 
+    margin: 10px 0; 
+    border-radius: 8px; 
+    font-size: 16px; 
+    font-weight: 500; 
+    cursor: pointer; 
+    transition: background 0.3s ease; 
+}
+.sidebar li:hover { 
+    background: #34495e; 
+}
+.sidebar li.active { 
+    background: #3498db; 
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.5); 
+}
+.sidebar a { 
+    color: #fff; 
+    text-decoration: none; 
+    display: block; 
+}
+
+/* Main Content */
+.main-content { 
+    flex: 1; 
+    padding: 40px; 
+    margin-left: 280px; 
+    background: #f0f2f5; 
+}
+.content-section { 
+    display: none; 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+}
+.content-section.active { 
+    display: block; 
+}
+h1 { 
+    font-size: 32px; 
+    font-weight: 700; 
+    color: #2c3e50; 
+    margin-bottom: 25px; 
+    text-align: center; 
+}
+
+/* Form trong Admin */
+form { 
+    display: grid; 
+    gap: 15px; 
+    max-width: 600px; 
+    margin: 0 auto 30px; 
+}
+form input, 
+form textarea { 
+    width: 100%; 
+    padding: 12px 15px; 
+    border: 2px solid #e0e0e0; 
+    border-radius: 8px; 
+    font-size: 16px; 
+    background: #f9fbfd; 
+    transition: border-color 0.3s ease; 
+}
+form input:focus, 
+form textarea:focus { 
+    border-color: #3498db; 
+    outline: none; 
+}
+form textarea { 
+    min-height: 100px; 
+    resize: vertical; 
+}
+form button { 
+    background: linear-gradient(90deg, #28a745, #218838); 
+    color: #fff; 
+    border: none; 
+    padding: 12px; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+}
+form button:hover { 
+    background: linear-gradient(90deg, #218838, #1e7e34); 
+    transform: translateY(-3px); 
+}
+
+/* Table trong Admin */
+th { 
+    background: #f5f5f5; 
+    font-weight: 600; 
+    color: #34495e; 
+}
+td img { 
+    max-width: 100px; 
+    border-radius: 8px; 
+    vertical-align: middle; 
+}
+.delete-btn { 
+    color: #dc3545; 
+    font-weight: 600; 
+    text-decoration: none; 
+    padding: 5px 10px; 
+    border-radius: 5px; 
+    display: inline-block; 
+}
+.delete-btn:hover { 
+    background: #dc3545; 
+    color: #fff; 
+}
+
+/* Chart Container */
+.chart-container { 
+    width: 70%; 
+    max-width: 800px; 
+    margin: 30px auto; 
+    padding: 20px; 
+    background: #fff; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+}
+
+[Tệp] C:\xampp\htdocs\web_english\admin\test_page.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+
+$sub_lesson_id = filter_var($_GET['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+$course_id = filter_var($_GET['course_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+
+if (!$sub_lesson_id || !$course_id) {
+    die("Thiếu thông tin bài học!");
+}
+
+// Lấy thông tin bài học con
+$stmt = $conn->prepare("SELECT * FROM sub_lessons WHERE id = ?");
+$stmt->bind_param("i", $sub_lesson_id);
+$stmt->execute();
+$sub_lesson = $stmt->get_result()->fetch_assoc() ?: die("Bài học không tồn tại!");
+
+// Lấy danh sách câu hỏi kiểm tra
+$test_stmt = $conn->prepare("SELECT * FROM sub_lesson_tests WHERE sub_lesson_id = ?");
+$test_stmt->bind_param("i", $sub_lesson_id);
+$test_stmt->execute();
+$questions = $test_stmt->get_result();
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bài kiểm tra: <?php echo htmlspecialchars($sub_lesson['title']); ?> - TOEIC Learning</title>
+    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        .test-container {
+            width: 90%;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-container h2 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .question {
+            margin-bottom: 20px;
+        }
+
+        .question p {
+            font-size: 16px;
+            font-weight: 500;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .option {
+            margin: 5px 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .option input {
+            margin-right: 10px;
+        }
+
+        .test-container button {
+            display: block;
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 20px auto;
+        }
+
+        .test-container button:hover {
+            background: linear-gradient(90deg, #2980b9, #2471a3);
+        }
+
+        .test-result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .test-result.success {
+            background: #d4edda;
+            color: #28a745;
+        }
+
+        .test-result.error {
+            background: #f8d7da;
+            color: #dc3545;
+        }
+
+        .back-btn {
+            display: block;
+            width: 200px;
+            margin: 20px auto;
+            text-align: center;
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            color: #fff;
+            padding: 12px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-btn:hover {
+            background: linear-gradient(90deg, #c82333, #bd2130);
+        }
+
+        @media (max-width: 768px) {
+            .test-container {
+                width: 100%;
+                margin: 20px auto;
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h2>Bài kiểm tra: <?php echo htmlspecialchars($sub_lesson['title']); ?></h2>
+        <form id="test-form" data-lesson-id="<?php echo $sub_lesson_id; ?>">
+            <?php if ($questions->num_rows > 0): ?>
+                <?php while ($question = $questions->fetch_assoc()): ?>
+                    <div class="question">
+                        <p><?php echo htmlspecialchars($question['question_text']); ?></p>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="A" id="q<?php echo $question['id']; ?>_a">
+                            <label for="q<?php echo $question['id']; ?>_a"><?php echo htmlspecialchars($question['option_a']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="B" id="q<?php echo $question['id']; ?>_b">
+                            <label for="q<?php echo $question['id']; ?>_b"><?php echo htmlspecialchars($question['option_b']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="C" id="q<?php echo $question['id']; ?>_c">
+                            <label for="q<?php echo $question['id']; ?>_c"><?php echo htmlspecialchars($question['option_c']); ?></label>
+                        </div>
+                        <div class="option">
+                            <input type="radio" name="q<?php echo $question['id']; ?>" value="D" id="q<?php echo $question['id']; ?>_d">
+                            <label for="q<?php echo $question['id']; ?>_d"><?php echo htmlspecialchars($question['option_d']); ?></label>
+                        </div>
+                    </div>
+                <?php endwhile; ?>
+                <button type="submit">Nộp bài</button>
+            <?php else: ?>
+                <p>Chưa có câu hỏi kiểm tra.</p>
+            <?php endif; ?>
+        </form>
+        <div class="test-result" id="test-result"></div>
+        <a href="course_detail.php?id=<?php echo $course_id; ?>" class="back-btn" id="back-btn" style="display: none;">Quay lại bài học</a>
+    </div>
+
+    <script>
+        document.getElementById('test-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const lessonId = e.target.dataset.lessonId;
+            const resultDiv = document.getElementById('test-result');
+            const formData = new FormData(e.target);
+
+            const answers = {};
+            formData.forEach((value, key) => {
+                answers[key] = value;
+            });
+
+            const response = await fetch('check_test.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lesson_id: lessonId, answers })
+            });
+
+            const result = await response.json();
+            resultDiv.className = `test-result ${result.success ? 'success' : 'error'}`;
+            resultDiv.textContent = result.message;
+            resultDiv.style.display = 'block';
+
+            // Ẩn form và hiển thị nút quay lại
+            document.getElementById('test-form').style.display = 'none';
+            document.getElementById('back-btn').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
+<?php $stmt->close(); $test_stmt->close(); $conn->close(); ?>
+
+[Thư mục] C:\xampp\htdocs\web_english\admin\uploads
+
+[Thư mục] C:\xampp\htdocs\web_english\assets
+
+[Thư mục] C:\xampp\htdocs\web_english\assets\img
+
+[Thư mục] C:\xampp\htdocs\web_english\auth
+
+[Tệp] C:\xampp\htdocs\web_english\auth\login.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    try {
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $password = $_POST['password'];
+
+        $stmt = $conn->prepare("SELECT id, username, password, role FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+
+        if ($user && password_verify($password, $user['password'])) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            header("Location: " . ($user['role'] === 'admin' ? '../admin/admin.php' : '../admin/dashboard.php'));
+            exit();
+        } else {
+            $error = "Sai email hoặc mật khẩu!";
+        }
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng nhập</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <form method="POST" class="auth-form">
+        <h2>Đăng nhập</h2>
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Mật khẩu" required>
+        <button type="submit">Đăng nhập</button>
+        <div class="register-link">Chưa có tài khoản? <a href="register.php">Đăng ký</a></div>
+        <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+    </form>
+</body>
+</html>
+
+[Tệp] C:\xampp\htdocs\web_english\auth\logout.php
+Nội dung:
+<?php
+session_start();
+session_destroy();
+header("Location: ../index.html");
+exit();
+?>
+
+[Tệp] C:\xampp\htdocs\web_english\auth\register.php
+Nội dung:
+<?php
+require_once '../config/config.php';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    try {
+        $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
+        $email = filter_var($_POST['email'], FILTER_SANITIZE_EMAIL);
+        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+        $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+        if ($stmt->get_result()->num_rows > 0) throw new Exception("Email đã tồn tại!");
+
+        $stmt = $conn->prepare("INSERT INTO users (username, email, password, role) VALUES (?, ?, ?, 'user')");
+        $stmt->bind_param("sss", $username, $email, $password);
+        $stmt->execute() ? $success = "Đăng ký thành công! <a href='login.php'>Đăng nhập</a>" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <form method="POST" class="auth-form">
+        <h2>Đăng ký</h2>
+        <input type="text" name="username" placeholder="Tên đăng nhập" required>
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Mật khẩu" required>
+        <button type="submit">Đăng ký</button>
+        <div class="register-link">Đã có tài khoản? <a href="login.php">Đăng nhập</a></div>
+        <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
+        <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+    </form>
+</body>
+</html>
+
+[Tệp] C:\xampp\htdocs\web_english\auth\style.css
+Nội dung:
+/* Auth Forms (Login & Register) */
+.auth-form { 
+    width: 400px; 
+    max-width: 90%; 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 15px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
+    margin: 0 auto; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    background: linear-gradient(135deg, #ffffff, #f8f9fa); 
+}
+.auth-form h2 { 
+    font-size: 28px; 
+    font-weight: 600; 
+    color: #2c3e50; 
+    text-align: center; 
+    margin-bottom: 20px; 
+}
+.auth-form input { 
+    width: 100%; 
+    padding: 12px 15px; 
+    margin: 12px 0; 
+    border: 2px solid #e0e0e0; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    background: #f9fbfd; 
+    transition: border-color 0.3s ease; 
+}
+.auth-form input:focus { 
+    border-color: #007bff; 
+    outline: none; 
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button { 
+    width: 100%; 
+    padding: 12px; 
+    background: linear-gradient(90deg, #007bff, #0056b3); 
+    color: #fff; 
+    border: none; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button:hover { 
+    background: linear-gradient(90deg, #0056b3, #003d80); 
+    transform: translateY(-3px); 
+}
+.register-link { 
+    text-align: center; 
+    margin-top: 15px; 
+    font-size: 14px; 
+    color: #7f8c8d; 
+}
+.register-link a { 
+    color: #007bff; 
+    text-decoration: none; 
+    font-weight: 500; 
+}
+.register-link a:hover { 
+    text-decoration: underline; 
+    color: #0056b3; 
+}
+
+[Thư mục] C:\xampp\htdocs\web_english\config
+
+[Tệp] C:\xampp\htdocs\web_english\config\config.php
+Nội dung:
+<?php
+$conn = new mysqli('localhost', 'root', '', 'toeicdb');
+
+if ($conn->connect_error) {
+    die("Kết nối thất bại: " . $conn->connect_error);
+}
+
+$conn->set_charset("utf8mb4");
+?>
+
+[Tệp] C:\xampp\htdocs\web_english\contact.php
+Nội dung:
+<?php
+session_start();
+require_once 'config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: auth/login.php");
+    exit();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    try {
+        $message = filter_var($_POST['message'], FILTER_SANITIZE_STRING);
+        $user_id = $_SESSION['user_id'];
+        $username = $_SESSION['username'];
+
+        $stmt = $conn->prepare("INSERT INTO contacts (user_id, username, message) VALUES (?, ?, ?)");
+        $stmt->bind_param("iss", $user_id, $username, $message);
+        $stmt->execute() ? $success = "Tin nhắn đã được gửi!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liên hệ</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">TOEIC Learning</div>
+        <div class="auth">
+            <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="admin/dashboard.php">Dashboard</a>
+            <a href="auth/logout.php">Đăng xuất</a>
+        </div>
+    </header>
+    <div class="container">
+        <h1>Liên hệ</h1>
+        <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
+        <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+        <form method="POST" class="auth-form">
+            <textarea name="message" placeholder="Nhập tin nhắn của bạn" required></textarea>
+            <button type="submit">Gửi</button>
+        </form>
+    </div>
+    <footer>&copy; 2025 TOEIC Learning</footer>
+</body>
+</html>
+<?php $conn->close(); ?>
+
+[Tệp] C:\xampp\htdocs\web_english\exportCode.js
+Nội dung:
+const fs = require('fs');
+const path = require('path');
+
+const directoryPath = 'C:/xampp/htdocs/web_english'; // Thư mục gốc
+const outputFile = 'full_code_list.txt'; // Tệp đầu ra
+
+// Danh sách phần mở rộng tệp mã nguồn cần xuất
+const codeExtensions = ['.php', '.js', '.css', '.html', '.csv', '.txt'];
+
+// Hàm kiểm tra xem tệp có phải là mã nguồn không
+function isCodeFile(file) {
+    return codeExtensions.includes(path.extname(file).toLowerCase());
+}
+
+// Hàm liệt kê và xuất nội dung tệp
+function exportCodeFiles(dir) {
+    const files = fs.readdirSync(dir);
+    files.forEach(file => {
+        const filePath = path.join(dir, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isDirectory()) {
+            if (file !== '.git') { // Bỏ qua thư mục .git
+                fs.appendFileSync(outputFile, `\n[Thư mục] ${filePath}\n`);
+                exportCodeFiles(filePath); // Đệ quy vào thư mục con
+            }
+        } else if (isCodeFile(file)) { // Chỉ xử lý tệp mã nguồn
+            fs.appendFileSync(outputFile, `\n[Tệp] ${filePath}\n`);
+            try {
+                const fileContent = fs.readFileSync(filePath, 'utf8');
+                fs.appendFileSync(outputFile, `Nội dung:\n${fileContent}\n`);
+            } catch (err) {
+                fs.appendFileSync(outputFile, `Không thể đọc nội dung: ${err.message}\n`);
+            }
+        }
+    });
+}
+
+// Xóa tệp đầu ra cũ (nếu có) và bắt đầu xuất
+if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+exportCodeFiles(directoryPath);
+console.log(`Đã xuất đầy đủ mã nguồn vào ${outputFile}!`);
+
+[Tệp] C:\xampp\htdocs\web_english\index.html
+Nội dung:
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>English Learning</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">English Learning</div>
+        <div class="auth">
+            <a href="auth/login.php">Đăng nhập</a>
+            <a href="auth/register.php">Đăng ký</a>
+            <a href="auth/login.php">Liên hệ</a>
+        </div>
+    </header>
+    <section class="hero">
+        <h1>Chào mừng đến với English Learning</h1>
+        <p>Học Tiếng Anh từ cơ bản đến nâng cao</p>
+        <a href="auth/login.php" class="btn">Bắt đầu ngay</a>
+    </section>
+</body>
+</html>
+
+[Tệp] C:\xampp\htdocs\web_english\profile.php
+Nội dung:
+<?php
+session_start();
+require_once '../web_english/config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit;
+}
+
+// Lấy thông tin người dùng
+$stmt = $conn->prepare("SELECT username, email FROM users WHERE id = ?");
+$stmt->bind_param("i", $_SESSION['user_id']);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
+
+// Cập nhật tên tài khoản
+if (isset($_POST['update_username'])) {
+    $new_username = filter_var($_POST['new_username'], FILTER_SANITIZE_STRING);
+    if (!empty($new_username)) {
+        $stmt = $conn->prepare("UPDATE users SET username = ? WHERE id = ?");
+        $stmt->bind_param("si", $new_username, $_SESSION['user_id']);
+        if ($stmt->execute()) {
+            $success = "Cập nhật tên tài khoản thành công!";
+            $_SESSION['username'] = $new_username;
+        } else {
+            $error = "Lỗi: " . $conn->error;
+        }
+    } else {
+        $error = "Tên tài khoản không được để trống!";
+    }
+}
+
+// Cập nhật mật khẩu
+if (isset($_POST['update_password'])) {
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $stmt = $conn->prepare("SELECT password FROM users WHERE id = ?");
+    $stmt->bind_param("i", $_SESSION['user_id']);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    
+    if (password_verify($current_password, $result['password'])) {
+        $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+        $stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+        $stmt->bind_param("si", $hashed_password, $_SESSION['user_id']);
+        if ($stmt->execute()) {
+            $success = "Cập nhật mật khẩu thành công!";
+        } else {
+            $error = "Lỗi: " . $conn->error;
+        }
+    } else {
+        $error = "Mật khẩu hiện tại không đúng!";
+    }
+}
+
+// Lấy lịch sử bài thi
+$result = $conn->prepare("SELECT test_id, score, total_questions, completed_at FROM test_results WHERE user_id = ? ORDER BY completed_at DESC");
+$result->bind_param("i", $_SESSION['user_id']);
+$result->execute();
+$test_history = $result->get_result();
+// Lấy lịch sử tin nhắn liên hệ
+$contact_stmt = $conn->prepare("SELECT id, message, status, reply, created_at, replied_at FROM contacts WHERE user_id = ? ORDER BY created_at DESC");
+$contact_stmt->bind_param("i", $_SESSION['user_id']);
+$contact_stmt->execute();
+$contact_history = $contact_stmt->get_result();
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hồ sơ - <?php echo htmlspecialchars($_SESSION['username']); ?></title>
+
+</head>
+<style>body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+/* Header */
+/* --- Header --- */
+header {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: #fff;
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.auth a {
+    color: #fff;
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+    position: relative;
+}
+
+.auth a::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 2px;
+    background: #ffcc00;
+    transition: width 0.3s ease;
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+}
+
+.auth a:hover::after {
+    width: 100%;
+}
+
+
+.container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 8px;
+}
+
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+.profile-section {
+    margin-bottom: 30px;
+}
+
+.profile-section h2 {
+    color: #333;
+    font-size: 18px;
+    margin-bottom: 10px;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+}
+
+.auth-form input {
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.auth-form button {
+    width: 100%; 
+    padding: 12px; 
+    background: linear-gradient(90deg, #007bff, #0056b3); 
+    color: #fff; 
+    border: none; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); 
+}
+
+.auth-form button:hover {
+    background: linear-gradient(90deg, #0056b3, #003d80); 
+    transform: translateY(-3px);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+table th, table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+table th {
+    background-color: #f2f2f2;
+}
+
+.success {
+    color: green;
+    text-align: center;
+    margin: 10px 0;
+}
+
+.error {
+    color: red;
+    text-align: center;
+    margin: 10px 0;
+}
+
+footer {
+    text-align: center;
+    padding: 10px;
+    background-color: #333;
+    color: #fff;
+}
+</style>
+<body>
+    <header>
+        <div class="logo">TOEIC Learning</div>
+        <div class="auth">
+            <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="../web_english/admin/dashboard.php">Dashboard</a>
+            <a href="../web_english/auth/logout.php">Đăng xuất</a>
+        </div>
+    </header>
+    <div class="container">
+        <h1>Hồ sơ cá nhân</h1>
+        <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
+        <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+
+        <!-- Đổi tên tài khoản -->
+        <div class="profile-section">
+            <h2>Đổi tên tài khoản</h2>
+            <form method="POST" class="auth-form">
+                <input type="text" name="new_username" placeholder="Tên mới" value="<?php echo htmlspecialchars($user['username']); ?>" required>
+                <button type="submit" name="update_username">Cập nhật</button>
+            </form>
+        </div>
+
+        <!-- Đổi mật khẩu -->
+        <div class="profile-section">
+            <h2>Đổi mật khẩu</h2>
+            <form method="POST" class="auth-form">
+                <input type="password" name="current_password" placeholder="Mật khẩu hiện tại" required>
+                <input type="password" name="new_password" placeholder="Mật khẩu mới" required>
+                <button type="submit" name="update_password">Cập nhật</button>
+            </form>
+        </div>
+
+        <!-- Lịch sử tin nhắn liên hệ -->
+        <div class="profile-section">
+            <h2>Lịch sử tin nhắn liên hệ</h2>
+            <?php if ($contact_history->num_rows > 0): ?>
+                <table>
+                    <tr><th>Tin nhắn</th><th>Trạng thái</th><th>Phản hồi</th></tr>
+                    <?php while ($contact = $contact_history->fetch_assoc()): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars($contact['message']); ?></td>
+                            <td><?php echo $contact['status'] === 'pending' ? 'Chờ xử lý' : 'Đã phản hồi'; ?></td>
+                            <td><?php echo $contact['reply'] ? htmlspecialchars($contact['reply']) : 'Chưa có'; ?></td>
+                            
+                        </tr>
+                    <?php endwhile; ?>
+                </table>
+            <?php else: ?>
+                <p>Chưa có tin nhắn nào.</p>
+            <?php endif; ?>
+        </div>
+    </div>
+    <footer>© 2025 TOEIC Learning</footer>
+</body>
+</html>
+
+<?php
+$stmt->close();
+$result->close();
+$conn->close();
+?>
+
+
+[Tệp] C:\xampp\htdocs\web_english\style.css
+Nội dung:
+/* Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f4f4f4;
+    color: #2c3e50;
+    line-height: 1.6;
+}
+/* Common */
+button, a { cursor: pointer; transition: all 0.3s ease; }
+button:hover, a:hover { transform: translateY(-2px); }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px; border: 1px solid #e0e0e0; text-align: left; }
+.success { color: #28a745; text-align: center; padding: 10px; }
+.error { color: #dc3545; text-align: center; padding: 10px; }
+
+/* Header */
+/* --- Header --- */
+header {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: #fff;
+    padding: 20px 5%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo {
+    font-size: 28px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.auth a {
+    color: #fff;
+    text-decoration: none;
+    margin-left: 20px;
+    font-weight: 500;
+    position: relative;
+}
+
+.auth a::after {
+    content: '';
+    display: block;
+    width: 0;
+    height: 2px;
+    background: #ffcc00;
+    transition: width 0.3s ease;
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+}
+
+.auth a:hover::after {
+    width: 100%;
+}
+
+/* --- Hero Section --- */
+.hero {
+    text-align: center;
+    padding: 80px 10%;
+    background: linear-gradient(135deg, #0056b3, #007bff);
+    color: #fff;
+}
+
+.hero h1 {
+    font-size: 42px;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+
+.hero p {
+    font-size: 20px;
+    font-style: italic;
+    margin-bottom: 30px;
+}
+
+.btn {
+    display: inline-block;
+    background: #ffcc00;
+    color: #2c3e50;
+    padding: 12px 30px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.btn:hover {
+    background: #ffe066;
+    transform: scale(1.05);
+}
+header h1 { 
+    font-size: 28px; 
+    font-weight: 700; 
+    letter-spacing: 1px; 
+    text-transform: uppercase; 
+}
+header h1 #testTitle { 
+    font-size: 24px; 
+    font-weight: 500; 
+    color: #ffcc00; 
+}
+.audio-player { 
+    flex: 1; 
+    margin: 0 20px; 
+    text-align: center; 
+}
+.audio-player audio { 
+    width: 100%; 
+    max-width: 400px; 
+    border-radius: 8px; 
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); 
+    background: #fff; 
+}
+#exitBtn { 
+    background: linear-gradient(90deg, #e74c3c, #c0392b); 
+    color: #fff; 
+    border: none; 
+    padding: 10px 25px; 
+    border-radius: 25px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3); 
+}
+#exitBtn:hover { 
+    background: linear-gradient(90deg, #c0392b, #a93226); 
+    transform: translateY(-3px); 
+}
+
+/* Hero */
+.hero { text-align: center; padding: 60px 10%; background: linear-gradient(135deg, #0056b3, #007bff); color: #fff; }
+.hero h1 { font-size: 36px; font-weight: 700; margin-bottom: 20px; text-transform: uppercase; }
+.hero p { font-size: 18px; margin: 15px 0; font-style: italic; }
+.btn { display: inline-block; background: #ffcc00; padding: 12px 25px; color: #2c3e50; font-weight: 600; border-radius: 25px; text-decoration: none; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
+.btn:hover { background: #e2e6ea; transform: scale(1.05); }
+
+/* Courses */
+.courses { padding: 50px 10%; background: #fff; }
+.courses h2 { text-align: center; margin-bottom: 30px; font-size: 28px; font-weight: 600; color: #34495e; }
+.course-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; }
+.course { background: #f8f9fa; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05); text-align: center; transition: transform 0.3s ease; }
+.course:hover { transform: translateY(-5px); }
+.course h3 { color: #007bff; margin-bottom: 15px; font-size: 20px; }
+.course a { background: #007bff; color: #fff; padding: 10px 20px; border-radius: 25px; text-decoration: none; font-weight: 500; }
+.course a:hover { background: #0056b3; }
+
+/* Footer */
+footer { text-align: center; padding: 15px; background: #2c3e50; color: #fff; font-size: 14px; }
+
+/* Auth Forms (Login & Register) */
+.auth-form { 
+    width: 400px; 
+    max-width: 90%; 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 15px; 
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); 
+    margin: 0 auto; 
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%); 
+    background: linear-gradient(135deg, #ffffff, #f8f9fa); 
+}
+.auth-form h2 { 
+    font-size: 28px; 
+    font-weight: 600; 
+    color: #2c3e50; 
+    text-align: center; 
+    margin-bottom: 20px; 
+}
+.auth-form input { 
+    width: 100%; 
+    padding: 12px 15px; 
+    margin: 12px 0; 
+    border: 2px solid #e0e0e0; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    background: #f9fbfd; 
+    transition: border-color 0.3s ease; 
+}
+.auth-form input:focus { 
+    border-color: #007bff; 
+    outline: none; 
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button { 
+    width: 100%; 
+    padding: 12px; 
+    background: linear-gradient(90deg, #007bff, #0056b3); 
+    color: #fff; 
+    border: none; 
+    border-radius: 25px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3); 
+}
+.auth-form button:hover { 
+    background: linear-gradient(90deg, #0056b3, #003d80); 
+    transform: translateY(-3px); 
+}
+.register-link { 
+    text-align: center; 
+    margin-top: 15px; 
+    font-size: 14px; 
+    color: #7f8c8d; 
+}
+.register-link a { 
+    color: #007bff; 
+    text-decoration: none; 
+    font-weight: 500; 
+}
+.register-link a:hover { 
+    text-decoration: underline; 
+    color: #0056b3; 
+}
+
+/* Admin */
+.container { 
+    display: flex; 
+    min-height: 100vh; 
+    background: #f0f2f5; 
+}
+.sidebar { 
+    width: 280px; 
+    background: linear-gradient(180deg, #2c3e50, #1a252f); 
+    padding: 30px 20px; 
+    color: #fff; 
+    position: fixed; 
+    height: 100%; 
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2); 
+}
+.sidebar h2 { 
+    font-size: 24px; 
+    font-weight: 700; 
+    margin-bottom: 40px; 
+    text-align: center; 
+    color: #ecf0f1; 
+    text-transform: uppercase; 
+    letter-spacing: 1px; 
+}
+.sidebar ul { 
+    list-style: none; 
+}
+.sidebar li { 
+    padding: 15px 20px; 
+    margin: 10px 0; 
+    border-radius: 8px; 
+    font-size: 16px; 
+    font-weight: 500; 
+}
+.sidebar li:hover { 
+    background: #34495e; 
+}
+.sidebar li.active { 
+    background: #3498db; 
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.5); 
+}
+.sidebar a { 
+    color: #fff; 
+    text-decoration: none; 
+    display: block; 
+}
+.main-content { 
+    flex: 1; 
+    padding: 40px; 
+    margin-left: 280px; 
+    background: #f0f2f5; 
+}
+.content-section { 
+    display: none; 
+    background: #fff; 
+    padding: 30px; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+}
+.content-section.active { 
+    display: block; 
+}
+h1 { 
+    font-size: 32px; 
+    font-weight: 700; 
+    color: #2c3e50; 
+    margin-bottom: 25px; 
+    text-align: center; 
+}
+h2 { 
+    font-size: 24px; 
+    font-weight: 600; 
+    color: #34495e; 
+    margin: 20px 0 15px; 
+}
+.admin-form { 
+    display: grid; 
+    gap: 15px; 
+    max-width: 600px; 
+    margin: 0 auto 30px; 
+}
+.admin-form input, 
+.admin-form textarea { 
+    width: 100%; 
+    padding: 12px 15px; 
+    border: 2px solid #e0e0e0; 
+    border-radius: 8px; 
+    font-size: 16px; 
+    background: #f9fbfd; 
+    transition: border-color 0.3s ease; 
+}
+.admin-form input:focus, 
+.admin-form textarea:focus { 
+    border-color: #3498db; 
+    outline: none; 
+}
+.admin-form textarea { 
+    min-height: 100px; 
+}
+.admin-form button { 
+    background: linear-gradient(90deg, #28a745, #218838); 
+    color: #fff; 
+    border: none; 
+    padding: 12px; 
+    border-radius: 8px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+}
+.admin-form button:hover { 
+    background: linear-gradient(90deg, #218838, #1e7e34); 
+    transform: translateY(-3px); 
+}
+th { 
+    background: #f5f5f5; 
+    font-weight: 600; 
+    color: #34495e; 
+}
+.delete-btn { 
+    color: #dc3545; 
+    font-weight: 600; 
+    text-decoration: none; 
+    padding: 5px 10px; 
+    border-radius: 5px; 
+}
+.delete-btn:hover { 
+    background: #dc3545; 
+    color: #fff; 
+}
+.chart-container { 
+    width: 70%; 
+    max-width: 800px; 
+    margin: 30px auto; 
+    padding: 20px; 
+    background: #fff; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+}
+img { 
+    max-width: 100px; 
+    border-radius: 8px; 
+}
+
+/* Course Detail */
+.course-image { 
+    max-width: 100%; 
+    height: auto; 
+    margin: 20px auto; 
+    border-radius: 10px; 
+    display: block; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+}
+.course-content { 
+    margin-top: 25px; 
+    padding: 20px; 
+    background: #f9fbfd; 
+    border-radius: 10px; 
+}
+.video-container { 
+    text-align: center; 
+    margin-top: 30px; 
+}
+video { 
+    width: 100%; 
+    max-width: 600px; 
+    border-radius: 10px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+}
+.download-links { 
+    text-align: center; 
+    margin-top: 25px; 
+}
+.download-links a { 
+    background: #28a745; 
+    color: #fff; 
+    padding: 12px 20px; 
+    border-radius: 25px; 
+    text-decoration: none; 
+    font-weight: 500; 
+}
+.download-links a:hover { 
+    background: #218838; 
+}
+.back-btn { 
+    display: block; 
+    width: 200px; 
+    margin: 30px auto; 
+    text-align: center; 
+    background: #dc3545; 
+    color: #fff; 
+    padding: 12px; 
+    border-radius: 25px; 
+    text-decoration: none; 
+    font-weight: 600; 
+}
+.back-btn:hover { 
+    background: #c82333; 
+}
+
+/* TOEIC Test */
+.container { 
+    display: flex; 
+    flex-wrap: wrap; 
+    max-width: 1400px; 
+    margin: 20px auto; 
+    gap: 20px; 
+    padding: 0 20px; 
+}
+.part-navigation { 
+    width: 20%; 
+    min-width: 200px; 
+    padding: 20px; 
+    background 
+
+: #fff; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+    position: sticky; 
+    top: 90px; 
+    height: fit-content; 
+    max-height: calc(100vh - 100px); 
+    overflow-y: auto; 
+}
+.part-btn { 
+    width: 100%; 
+    padding: 15px; 
+    margin: 8px 0; 
+    background: #ecf0f1; 
+    color: #2c3e50; 
+    border: none; 
+    border-radius: 10px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-align: left; 
+    transition: background 0.3s ease, color 0.3s ease; 
+}
+.part-btn:hover { 
+    background: #bdc3c7; 
+}
+.part-btn.active { 
+    background: linear-gradient(90deg, #3498db, #2980b9); 
+    color: #fff; 
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3); 
+}
+.question-section { 
+    width: 55%; 
+    min-width: 500px; 
+    padding: 30px; 
+    background: #fff; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+    min-height: 600px; 
+}
+.question { 
+    margin-bottom: 25px; 
+    padding: 20px; 
+    background: #f9fbfd; 
+    border-radius: 10px; 
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.03); 
+}
+.question p { 
+    font-size: 18px; 
+    font-weight: 600; 
+    color: #34495e; 
+    margin-bottom: 15px; 
+}
+.question img { 
+    max-width: 100%; 
+    width: 400px; 
+    height: auto; 
+    display: block; 
+    margin: 15px auto; 
+    border-radius: 10px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+}
+.option { 
+    margin: 10px 0; 
+    display: flex; 
+    align-items: center; 
+}
+.option input[type="radio"] { 
+    margin-right: 12px; 
+    accent-color: #3498db; 
+    width: 18px; 
+    height: 18px; 
+}
+.option label { 
+    font-size: 16px; 
+    color: #2c3e50; 
+}
+.sidebar { 
+    width: 20%; 
+    min-width: 200px; 
+    padding: 20px; 
+    background: #fff; 
+    border-radius: 15px; 
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05); 
+    position: sticky; 
+    top: 90px; 
+    height: fit-content; 
+    max-height: calc(100vh - 100px); 
+    overflow-y: auto; 
+}
+.timer { 
+    padding: 15px; 
+    background: #ecf0f1; 
+    color: #2c3e50; 
+    border-radius: 10px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-align: center; 
+    margin-bottom: 15px; 
+    transition: background 0.3s ease, color 0.3s ease; 
+}
+#timeDisplay { 
+    font-size: 28px; 
+    font-weight: 700; 
+    color: #c0392b; 
+    display: block; 
+    margin-top: 10px; 
+}
+.question-list-title { 
+    font-size: 16px; 
+    font-weight: 600; 
+    color: #2c3e50; 
+    margin-bottom: 15px; 
+    padding-bottom: 5px; 
+    border-bottom: 2px solid #ecf0f1; 
+}
+.question-list { 
+    display: grid; 
+    grid-template-columns: repeat(auto-fill, minmax(45px, 1fr)); 
+    gap: 10px; 
+    max-height: 350px; 
+    overflow-y: auto; 
+    padding: 10px 0; 
+}
+.question-list button { 
+    width: 100%; 
+    padding: 15px; 
+    background: #ecf0f1; 
+    color: #2c3e50; 
+    border: none; 
+    border-radius: 10px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-align: center; 
+    transition: background 0.3s ease, color 0.3s ease; 
+}
+.question-list button:hover { 
+    background: #bdc3c7; 
+}
+.question-list button.active { 
+    background: linear-gradient(90deg, #3498db, #2980b9); 
+    color: #fff; 
+    box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3); 
+}
+#submitBtn { 
+    width: 100%; 
+    padding: 15px; 
+    background: linear-gradient(90deg, #2ecc71, #27ae60); 
+    color: #fff; 
+    border: none; 
+    border-radius: 10px; 
+    font-size: 16px; 
+    font-weight: 600; 
+    text-transform: uppercase; 
+    margin-top: 25px; 
+    box-shadow: 0 4px 10px rgba(46, 204, 113, 0.3); 
+}
+#submitBtn:hover { 
+    background: linear-gradient(90deg, #27ae60, #219653); 
+    transform: translateY(-3px); 
+}
+#scoreDisplay { 
+    margin-top: 20px; 
+    text-align: center; 
+    font-size: 18px; 
+    font-weight: 600; 
+    color: #34495e; 
+}
+.scroll-top-btn { 
+    position: fixed; 
+    bottom: 30px; 
+    right: 30px; 
+    padding: 12px 25px; 
+    background: linear-gradient(90deg, #3498db, #2980b9); 
+    color: #fff; 
+    border: none; 
+    border-radius: 25px; 
+    font-weight: 600; 
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3); 
+    display: none; 
+}
+.scroll-top-btn:hover { 
+    background: linear-gradient(90deg, #2980b9, #2471a3); 
+    transform: translateY(-3px); 
+}
+/* Select Test */
+.select-test-container { 
+    max-width: 1200px; 
+    margin: 30px auto; 
+    padding: 20px; 
+    background: #fff; 
+    border-radius: 10px; 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); 
+}
+.refresh-btn { 
+    margin: 0 auto 20px; 
+    padding: 8px 16px; 
+    background: #3498db; 
+    color: #fff; 
+    border: none; 
+    border-radius: 5px; 
+    display: block; 
+}
+.refresh-btn:hover { 
+    background: #2980b9; 
+}
+.test-grid { 
+    display: grid; 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 20px; 
+}
+.test-card { 
+    background: #fff; 
+    border: 1px solid #e0e0e0; 
+    border-radius: 8px; 
+    padding: 15px; 
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); 
+}
+.test-card h3 { 
+    font-size: 18px; 
+    font-weight: 600; 
+    color: #2c3e50; 
+    margin-bottom: 10px; 
+}
+.test-info { 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 10px; 
+    margin-bottom: 10px; 
+    font-size: 14px; 
+    color: #7f8c8d; 
+}
+.action-btn { 
+    width: 100%; 
+    padding: 8px; 
+    background: #3498db; 
+    color: #fff; 
+    border: none; 
+    border-radius: 5px; 
+}
+.action-btn:hover { 
+    background: #2980b9; 
+}
+textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 16px;
+    background: #f9fbfd;
+    transition: border-color 0.3s ease;
+    min-height: 100px;
+    resize: vertical;
+}
+textarea:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+[Thư mục] C:\xampp\htdocs\web_english\test
+
+[Tệp] C:\xampp\htdocs\web_english\test\admin.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+// Kiểm tra đăng nhập
+if (!isset($_SESSION['user_id'])) {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Chưa đăng nhập']);
+    exit();
+}
+
+// Kiểm tra quyền admin chỉ cho tạo/xóa
+if (($_SERVER['REQUEST_METHOD'] === 'POST' || (isset($_GET['action']) && $_GET['action'] === 'delete')) && $_SESSION['role'] !== 'admin') {
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Không có quyền admin']);
+    exit();
+}
+
+$testsDir = '../tests/';
+
+function getTests($dir) {
+    if (!is_dir($dir)) {
+        return [];
+    }
+    return array_filter(glob($dir . '*'), 'is_dir');
+}
+
+// Xử lý action=list để trả về danh sách bài thi (cho cả user và admin)
+if (isset($_GET['action']) && $_GET['action'] === 'list') {
+    header('Content-Type: application/json');
+    $tests = getTests($testsDir);
+    $testNames = array_map('basename', $tests);
+    echo json_encode($testNames);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_test'])) {
+    try {
+        $testId = preg_match('/^test\d+$/', trim($_POST['test_id'])) ? trim($_POST['test_id']) : 'test' . trim($_POST['test_id']);
+        $uploadDir = "{$testsDir}{$testId}/";
+        if (file_exists($uploadDir)) throw new Exception("ID '{$testId}' đã tồn tại!");
+
+        $dirs = [$uploadDir, "{$uploadDir}uploads/", "{$uploadDir}img/", "{$uploadDir}audio/"];
+        foreach ($dirs as $dir) if (!mkdir($dir, 0777, true)) throw new Exception("Không thể tạo thư mục!");
+
+        $csvPath = "{$uploadDir}uploads/questions.csv";
+        if (!move_uploaded_file($_FILES['csv_file']['tmp_name'], $csvPath)) throw new Exception("Lỗi upload CSV!");
+
+        foreach (['images' => 'img', 'audios' => 'audio'] as $type => $folder) {
+            if (isset($_FILES[$type]) && !empty($_FILES[$type]['name'][0])) {
+                foreach ($_FILES[$type]['tmp_name'] as $key => $tmpName) {
+                    if ($_FILES[$type]['error'][$key] === UPLOAD_ERR_OK) {
+                        move_uploaded_file($tmpName, "{$uploadDir}{$folder}/" . $_FILES[$type]['name'][$key]);
+                    }
+                }
+            }
+        }
+        $success = "Tạo bài kiểm tra {$testId} thành công!";
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['test'])) {
+    $testDir = "{$testsDir}{$_GET['test']}";
+    function deleteDir($dir) {
+        if (!file_exists($dir)) return true;
+        foreach (scandir($dir) as $item) {
+            if ($item == '.' || $item == '..') continue;
+            is_dir("$dir/$item") ? deleteDir("$dir/$item") : unlink("$dir/$item");
+        }
+        return rmdir($dir);
+    }
+    echo json_encode(deleteDir($testDir) ? ['status' => 'success'] : ['status' => 'error']);
+    exit;
+}
+
+$tests = getTests($testsDir);
+?>
+
+<div class="test-admin">
+    <h2>Quản Lý Bài Kiểm Tra</h2>
+    <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
+    <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
+    <form method="POST" enctype="multipart/form-data" class="admin-form">
+        <input type="text" name="test_id" placeholder="ID (VD: 2)" required>
+        <input type="file" name="csv_file" accept=".csv" required>
+        <input type="file" name="images[]" accept="image/*" multiple>
+        <input type="file" name="audios[]" accept="audio/*" multiple>
+        <button type="submit" name="create_test">Tạo</button>
+    </form>
+    <table>
+        <tr><th>ID</th><th>Hành động</th></tr>
+        <?php foreach ($tests as $test): ?>
+            <tr>
+                <td><?php echo basename($test); ?></td>
+                <td><button class="delete-btn" onclick="deleteTest('<?php echo basename($test); ?>')">Xóa</button></td>
+            </tr>
+        <?php endforeach; ?>
+    </table>
+</div>
+
+<script>
+    function deleteTest(testId) {
+        if (confirm(`Xóa ${testId}?`)) {
+            fetch(`admin.php?action=delete&test=${testId}`).then(res => res.json()).then(data => {
+                if (data.status === 'success') location.reload();
+            });
+        }
+    }
+</script>
+
+[Tệp] C:\xampp\htdocs\web_english\test\get_questions.php
+Nội dung:
+<?php
+header('Content-Type: application/json');
+require_once '../config/config.php';
+
+$test = filter_var($_GET['test'] ?? 'test1', FILTER_SANITIZE_STRING);
+$filePath = "../tests/{$test}/uploads/questions.csv";
+
+try {
+    if (!file_exists($filePath)) throw new Exception("File CSV không tồn tại!");
+    $file = fopen($filePath, 'r');
+    $headers = fgetcsv($file);
+    $data = [];
+    while ($row = fgetcsv($file)) {
+        if (count($row) === count($headers)) $data[] = array_combine($headers, array_map('trim', $row));
+    }
+    fclose($file);
+    echo json_encode($data);
+} catch (Exception $e) {
+    echo json_encode(['error' => $e->getMessage()]);
+}
+exit;
+
+[Tệp] C:\xampp\htdocs\web_english\test\index.html
+Nội dung:
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOEIC Test</title>
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+    <header>
+        <h1>TOEIC Test <span id="testTitle"></span></h1>
+        <div class="audio-player">
+            <audio id="audioPlayer" controls><source id="audioSource" src="" type="audio/mpeg"></audio>
+        </div>
+        <button id="exitBtn">Thoát</button>
+    </header>
+    <div class="container">
+        <nav class="part-navigation">
+            <button class="part-btn active" data-part="1">Part 1</button>
+            <button class="part-btn" data-part="2">Part 2</button>
+            <button class="part-btn" data-part="3">Part 3</button>
+            <button class="part-btn" data-part="4">Part 4</button>
+            <button class="part-btn" data-part="5">Part 5</button>
+            <button class="part-btn" data-part="6">Part 6</button>
+            <button class="part-btn" data-part="7">Part 7</button>
+        </nav>
+        <section id="questionSection" class="question-section"></section>
+        <aside class="sidebar">
+            <div class="timer">Thời gian: <span id="timeDisplay">120:00</span></div>
+            <div class="question-list-title">Câu hỏi</div>
+            <div class="question-list" id="questionList"></div>
+            <button id="submitBtn">Nộp bài</button>
+            <div id="scoreDisplay">Điểm: 0/200</div>
+        </aside>
+    </div>
+    <button id="scrollTopBtn" class="scroll-top-btn">Lên đầu</button>
+    <script src="script.js"></script>
+</body>
+</html>
+
+[Tệp] C:\xampp\htdocs\web_english\test\questions.csv
+Nội dung:
+part,id,content,image,optionA,optionB,optionC,optionD,correct,passage
+1,1,What is in the picture?,1.png,A,B,C,D,A,
+1,2,What is in the picture?,2.png,A,B,C,D,B,
+1,3,What is in the picture?,3.png,A,B,C,D,C,
+1,4,What is in the picture?,4.png,A,B,C,D,D,
+1,5,What is in the picture?,5.png,A,B,C,D,A,
+1,6,What is in the picture?,6.png,A,B,C,D,B,
+2,7,What time is it?,,"8 AM","9 AM","10 AM",,A,
+2,8,Where are they going?,,"To the park","To the office","To the mall",,B,
+2,9,Who are they meeting?,,"John","Mary","Tom",,C,
+2,10,What is the weather like?,,"Sunny","Rainy","Cloudy",,A,
+2,11,How are they traveling?,,"By car","By train","By bus",,B,
+3,12,Question 12,,"Option A","Option B","Option C","Option D",A,
+3,13,Question 13,,"Option A","Option B","Option C","Option D",B,
+4,14,Question 14,,"Option A","Option B","Option C","Option D",C,
+4,15,Question 15,,"Option A","Option B","Option C","Option D",D,
+5,16,Question 16,,"Option A","Option B","Option C","Option D",A,
+5,17,Question 17,,"Option A","Option B","Option C","Option D",B,
+6,18,Question 18,,A,B,C,D,A,This is a sample passage for Part 6.
+6,19,Question 19,,A,B,C,D,B,This is a sample passage for Part 6.
+6,20,Question 20,,A,B,C,D,C,This is a sample passage for Part 6.
+6,21,Question 21,,A,B,C,D,D,This is a sample passage for Part 6.
+7,22,Question 22,,A,B,C,D,A,This is a sample passage for Part 7.
+7,23,Question 23,,A,B,C,D,B,This is a sample passage for Part 7.
+7,24,Question 24,,A,B,C,D,C,This is a sample passage for Part 7.
+7,25,Question 25,,A,B,C,D,D,This is a sample passage for Part 7.
+7,26,Question 26,,A,B,C,D,A,This is a sample passage for Part 7.
+
+[Tệp] C:\xampp\htdocs\web_english\test\script.js
+Nội dung:
+document.addEventListener('DOMContentLoaded', () => {
+    const els = {
+        questionSection: document.getElementById('questionSection'),
+        questionList: document.getElementById('questionList'),
+        timeDisplay: document.getElementById('timeDisplay'),
+        submitBtn: document.getElementById('submitBtn'),
+        exitBtn: document.getElementById('exitBtn'),
+        scrollTopBtn: document.getElementById('scrollTopBtn'),
+        partButtons: document.querySelectorAll('.part-btn'),
+        scoreDisplay: document.getElementById('scoreDisplay'),
+        audioPlayer: document.getElementById('audioPlayer'),
+        audioSource: document.getElementById('audioSource'),
+        testTitle: document.getElementById('testTitle')
+    };
+
+    let currentPart = 1, timeLeft = 120 * 60, timer, questions = {};
+    const test = new URLSearchParams(window.location.search).get('test') || localStorage.getItem('currentTest') || 'test1';
+    els.testTitle.textContent = test.replace('test', '');
+
+    async function loadQuestions() {
+        const data = await (await fetch(`get_questions.php?test=${test}`)).json();
+        if (data.error) throw new Error(data.error);
+        questions = data.reduce((acc, q) => {
+            const part = parseInt(q.part);
+            acc[part] = acc[part] || [];
+            acc[part].push(q);
+            return acc;
+        }, {});
+        displayQuestions(currentPart);
+    }
+
+    function startTimer() {
+        timer = setInterval(() => {
+            timeLeft--;
+            els.timeDisplay.textContent = `${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`;
+            if (timeLeft <= 0) { clearInterval(timer); alert('Hết giờ!'); submitTest(); }
+        }, 1000);
+    }
+
+    function updateAudio(part) {
+        const src = [2, 3, 4].includes(part) ? `../tests/${test}/audio/part${part}.mp3` : '';
+        els.audioSource.src = src;
+        if (src) els.audioPlayer.load();
+    }
+
+    function displayQuestions(part) {
+        els.questionSection.innerHTML = '';
+        const qs = questions[part] || [];
+        if (!qs.length) return els.questionSection.innerHTML = '<p>Không có câu hỏi.</p>';
+
+        updateAudio(part);
+        qs.forEach(q => {
+            const div = document.createElement('div');
+            div.classList.add('question');
+            div.innerHTML = `<p>Câu ${q.id}: ${q.content || ''}</p>`;
+            if (q.image) div.innerHTML += `<img src="../tests/${test}/img/${q.image}" alt="Câu ${q.id}">`;
+            const opts = q.type === 'part2' ? ['A', 'B', 'C'] : ['A', 'B', 'C', 'D'];
+            opts.forEach(o => {
+                if (q[`option${o}`]) div.innerHTML += `
+                    <div class="option">
+                        <input type="radio" name="q${q.id}" value="${o}" id="q${q.id}-${o}">
+                        <label for="q${q.id}-${o}">${o}</label>
+                    </div>`;
+            });
+            els.questionSection.appendChild(div);
+        });
+        updateQuestionList(qs);
+        loadAnswers();
+    }
+
+    function updateQuestionList(qs) {
+        els.questionList.innerHTML = qs.map(q => `<button onclick="document.querySelector('input[name=q${q.id}]')?.scrollIntoView()">${q.id}</button>`).join('');
+    }
+
+    function saveAnswer(qId, val) {
+        const answers = JSON.parse(localStorage.getItem(`toeic_${test}`)) || {};
+        answers[qId] = val;
+        localStorage.setItem(`toeic_${test}`, JSON.stringify(answers));
+    }
+
+    function loadAnswers() {
+        const answers = JSON.parse(localStorage.getItem(`toeic_${test}`)) || {};
+        document.querySelectorAll('input[type="radio"]').forEach(i => {
+            if (answers[i.name.replace('q', '')] === i.value) i.checked = true;
+            i.addEventListener('change', () => saveAnswer(i.name.replace('q', ''), i.value));
+        });
+    }
+
+    function submitTest() {
+        clearInterval(timer);
+        const answers = JSON.parse(localStorage.getItem(`toeic_${test}`)) || {};
+        let score = 0, total = 0;
+        Object.values(questions).flat().forEach(q => {
+            if (q.correct) { total++; if (answers[q.id] === q.correct) score++; }
+        });
+        els.scoreDisplay.textContent = `Điểm: ${score}/${total}`;
+        alert(`Điểm: ${score}/${total}`);
+        localStorage.removeItem(`toeic_${test}`);
+        window.location.href = 'select_test.php';
+    }
+
+    els.partButtons.forEach(b => b.addEventListener('click', () => {
+        els.partButtons.forEach(btn => btn.classList.remove('active'));
+        b.classList.add('active');
+        currentPart = parseInt(b.dataset.part);
+        displayQuestions(currentPart);
+    }));
+    els.submitBtn.addEventListener('click', () => confirm('Nộp bài?') && submitTest());
+    els.exitBtn.addEventListener('click', () => confirm('Thoát?') && (clearInterval(timer), localStorage.removeItem(`toeic_${test}`), window.location.href = 'select_test.php'));
+    els.scrollTopBtn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    window.addEventListener('scroll', () => els.scrollTopBtn.style.display = window.scrollY > 200 ? 'block' : 'none');
+
+    startTimer();
+    loadQuestions();
+});
+
+[Tệp] C:\xampp\htdocs\web_english\test\select_test.php
+Nội dung:
+<?php
+session_start();
+require_once '../config/config.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: ../auth/login.php");
+    exit();
+}
+?>
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chọn Bài Thi</title>
+    <link rel="stylesheet" href="../style.css"> 
+</head>
+<body>
+    <header>
+        <div class="logo">TOEIC Learning</div>
+        <div class="auth">
+            <span><?php echo htmlspecialchars($_SESSION['username']); ?></span>
+            <a href="../profile.php">Hồ sơ</a> 
+            <a href="../auth/logout.php">Đăng xuất</a>
+            <a href="#">Liên hệ</a>
+        </div>
+    </header>
+    <div class="select-test-container">
+        <h2>Chọn Bài Thi</h2>
+        <button id="refreshBtn" class="refresh-btn">Làm mới</button>
+        <div id="testList" class="test-grid"></div>
+    </div>
+    <script>
+async function loadTests() {
+    try {
+        const response = await fetch('../test/admin.php?action=list', { 
+            cache: 'no-store',
+            credentials: 'include' // Gửi cookie session để duy trì đăng nhập
+        });
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Lỗi HTTP: ${response.status} - ${errorText}`);
+        }
+        const data = await response.json();
+        // Kiểm tra nếu API trả về lỗi trong JSON
+        if (data.error) {
+            document.getElementById('testList').innerHTML = `<p>${data.error}</p>`;
+            return;
+        }
+        // Hiển thị danh sách bài thi
+        document.getElementById('testList').innerHTML = data.length ? data.map(t => `
+            <div class="test-card">
+                <h3>${t.replace('test', 'Test ')}</h3>
+                <div class="test-info"><span>⏰ 120 phút</span><span>✏️ 200 câu</span></div>
+                <button class="action-btn" onclick="startTest('${t}')">Làm ngay</button>
+            </div>`).join('') : '<p>Chưa có bài thi.</p>';
+    } catch (error) {
+        console.error('Lỗi khi tải danh sách bài thi:', error.message);
+        document.getElementById('testList').innerHTML = '<p>Lỗi tải danh sách bài thi: ' + error.message + '</p>';
+    }
+}
+
+        function startTest(testId) {
+            localStorage.setItem('currentTest', testId);
+            window.location.href = `index.html?test=${testId}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTests();
+            document.getElementById('refreshBtn').addEventListener('click', loadTests);
+        });
+    </script>
+</body>
+</html>
+
+[Thư mục] C:\xampp\htdocs\web_english\tests
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 1
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 1\img
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 1\uploads
+
+[Tệp] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 1\uploads\questions.csv
+Nội dung:
+part,id,content,image,optionA,optionB,optionC,optionD,correct,passage
+1,1,What is in the picture?,1.png,A,B,C,D,A,
+1,2,What is in the picture?,2.png,A,B,C,D,B,
+1,3,What is in the picture?,3.png,A,B,C,D,C,
+1,4,What is in the picture?,4.png,A,B,C,D,D,
+1,5,What is in the picture?,5.png,A,B,C,D,A,
+1,6,What is in the picture?,6.png,A,B,C,D,B,
+2,7,What time is it?,,"8 AM","9 AM","10 AM",,A,
+2,8,Where are they going?,,"To the park","To the office","To the mall",,B,
+2,9,Who are they meeting?,,"John","Mary","Tom",,C,
+2,10,What is the weather like?,,"Sunny","Rainy","Cloudy",,A,
+2,11,How are they traveling?,,"By car","By train","By bus",,B,
+3,12,Question 12,,"Option A","Option B","Option C","Option D",A,
+3,13,Question 13,,"Option A","Option B","Option C","Option D",B,
+4,14,Question 14,,"Option A","Option B","Option C","Option D",C,
+4,15,Question 15,,"Option A","Option B","Option C","Option D",D,
+5,16,Question 16,,"Option A","Option B","Option C","Option D",A,
+5,17,Question 17,,"Option A","Option B","Option C","Option D",B,
+6,18,Question 18,,A,B,C,D,A,This is a sample passage for Part 6.
+6,19,Question 19,,A,B,C,D,B,This is a sample passage for Part 6.
+6,20,Question 20,,A,B,C,D,C,This is a sample passage for Part 6.
+6,21,Question 21,,A,B,C,D,D,This is a sample passage for Part 6.
+7,22,Question 22,,A,B,C,D,A,This is a sample passage for Part 7.
+7,23,Question 23,,A,B,C,D,B,This is a sample passage for Part 7.
+7,24,Question 24,,A,B,C,D,C,This is a sample passage for Part 7.
+7,25,Question 25,,A,B,C,D,D,This is a sample passage for Part 7.
+7,26,Question 26,,A,B,C,D,A,This is a sample passage for Part 7.
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 2
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 2\img
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 2\uploads
+
+[Tệp] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 2\uploads\questions.csv
+Nội dung:
+part,id,content,image,optionA,optionB,optionC,optionD,correct,passage
+1,1,What is in the picture?,1.png,A,B,C,D,A,
+1,2,What is in the picture?,2.png,A,B,C,D,B,
+1,3,What is in the picture?,3.png,A,B,C,D,C,
+1,4,What is in the picture?,4.png,A,B,C,D,D,
+1,5,What is in the picture?,5.png,A,B,C,D,A,
+1,6,What is in the picture?,6.png,A,B,C,D,B,
+2,7,What time is it?,,"8 AM","9 AM","10 AM",,A,
+2,8,Where are they going?,,"To the park","To the office","To the mall",,B,
+2,9,Who are they meeting?,,"John","Mary","Tom",,C,
+2,10,What is the weather like?,,"Sunny","Rainy","Cloudy",,A,
+2,11,How are they traveling?,,"By car","By train","By bus",,B,
+3,12,Question 12,,"Option A","Option B","Option C","Option D",A,
+3,13,Question 13,,"Option A","Option B","Option C","Option D",B,
+4,14,Question 14,,"Option A","Option B","Option C","Option D",C,
+4,15,Question 15,,"Option A","Option B","Option C","Option D",D,
+5,16,Question 16,,"Option A","Option B","Option C","Option D",A,
+5,17,Question 17,,"Option A","Option B","Option C","Option D",B,
+6,18,Question 18,,A,B,C,D,A,This is a sample passage for Part 6.
+6,19,Question 19,,A,B,C,D,B,This is a sample passage for Part 6.
+6,20,Question 20,,A,B,C,D,C,This is a sample passage for Part 6.
+6,21,Question 21,,A,B,C,D,D,This is a sample passage for Part 6.
+7,22,Question 22,,A,B,C,D,A,This is a sample passage for Part 7.
+7,23,Question 23,,A,B,C,D,B,This is a sample passage for Part 7.
+7,24,Question 24,,A,B,C,D,C,This is a sample passage for Part 7.
+7,25,Question 25,,A,B,C,D,D,This is a sample passage for Part 7.
+7,26,Question 26,,A,B,C,D,A,This is a sample passage for Part 7.
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 3
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 3\img
+
+[Thư mục] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 3\uploads
+
+[Tệp] C:\xampp\htdocs\web_english\tests\testNew Economy TOEIC Test 3\uploads\questions.csv
+Nội dung:
+part,id,content,image,optionA,optionB,optionC,optionD,correct,passage
+1,1,What is in the picture?,1.png,A,B,C,D,A,
+1,2,What is in the picture?,2.png,A,B,C,D,B,
+1,3,What is in the picture?,3.png,A,B,C,D,C,
+1,4,What is in the picture?,4.png,A,B,C,D,D,
+1,5,What is in the picture?,5.png,A,B,C,D,A,
+1,6,What is in the picture?,6.png,A,B,C,D,B,
+2,7,What time is it?,,"8 AM","9 AM","10 AM",,A,
+2,8,Where are they going?,,"To the park","To the office","To the mall",,B,
+2,9,Who are they meeting?,,"John","Mary","Tom",,C,
+2,10,What is the weather like?,,"Sunny","Rainy","Cloudy",,A,
+2,11,How are they traveling?,,"By car","By train","By bus",,B,
+3,12,Question 12,,"Option A","Option B","Option C","Option D",A,
+3,13,Question 13,,"Option A","Option B","Option C","Option D",B,
+4,14,Question 14,,"Option A","Option B","Option C","Option D",C,
+4,15,Question 15,,"Option A","Option B","Option C","Option D",D,
+5,16,Question 16,,"Option A","Option B","Option C","Option D",A,
+5,17,Question 17,,"Option A","Option B","Option C","Option D",B,
+6,18,Question 18,,A,B,C,D,A,This is a sample passage for Part 6.
+6,19,Question 19,,A,B,C,D,B,This is a sample passage for Part 6.
+6,20,Question 20,,A,B,C,D,C,This is a sample passage for Part 6.
+6,21,Question 21,,A,B,C,D,D,This is a sample passage for Part 6.
+7,22,Question 22,,A,B,C,D,A,This is a sample passage for Part 7.
+7,23,Question 23,,A,B,C,D,B,This is a sample passage for Part 7.
+7,24,Question 24,,A,B,C,D,C,This is a sample passage for Part 7.
+7,25,Question 25,,A,B,C,D,D,This is a sample passage for Part 7.
+7,26,Question 26,,A,B,C,D,A,This is a sample passage for Part 7.
