@@ -12,6 +12,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     exit();
 }
 
+// Hàm xử lý upload file
 function handleFileUpload($file, $targetDir) {
     $fileName = basename($file["name"]);
     $targetPath = $targetDir . $fileName;
@@ -49,10 +50,7 @@ if (isset($_POST['reply_message'])) {
     }
 }
 
-// Truy vấn tin nhắn liên hệ
-$result_contacts = $conn->query("SELECT id, user_id, username, message, status, reply, created_at, replied_at FROM contacts ORDER BY created_at DESC");
-
-// Thêm người dùng
+// Xử lý thêm người dùng
 if (isset($_POST['add_user'])) {
     try {
         $username = filter_var($_POST['username'], FILTER_SANITIZE_STRING);
@@ -68,7 +66,7 @@ if (isset($_POST['add_user'])) {
     }
 }
 
-// Xóa người dùng
+// Xử lý xóa người dùng
 if (isset($_GET['delete_user'])) {
     try {
         $user_id = filter_var($_GET['delete_user'], FILTER_SANITIZE_NUMBER_INT);
@@ -81,7 +79,7 @@ if (isset($_GET['delete_user'])) {
     }
 }
 
-// Thêm khóa học
+// Xử lý thêm khóa học
 if (isset($_POST['add_course'])) {
     try {
         $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
@@ -90,9 +88,9 @@ if (isset($_POST['add_course'])) {
         $price = filter_var($_POST['price'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
         $target_dir = "../uploads/";
         
-        $image = handleFileUpload($_FILES["course_image"], $target_dir);
-        $content_file = handleFileUpload($_FILES["course_content"], $target_dir);
-        $video_file = handleFileUpload($_FILES["course_video"], $target_dir);
+        $image = handleFileUpload($_FILES["image"], $target_dir);
+        $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
+        $video_file = handleFileUpload($_FILES["video_file"], $target_dir);
 
         if (!$image || !$content_file || !$video_file) throw new Exception("Lỗi upload file!");
 
@@ -105,13 +103,82 @@ if (isset($_POST['add_course'])) {
     }
 }
 
-// Xóa khóa học
+// Xử lý thêm bài học con
+if (isset($_POST['add_sub_lesson'])) {
+    try {
+        $course_id = filter_var($_POST['course_id'], FILTER_SANITIZE_NUMBER_INT);
+        $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
+        $description = filter_var($_POST['description'], FILTER_SANITIZE_STRING);
+        $order_number = filter_var($_POST['order_number'], FILTER_SANITIZE_NUMBER_INT);
+        $target_dir = "../uploads/";
+
+        $video_file = handleFileUpload($_FILES["video_file"], $target_dir);
+        $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
+
+        if (!$video_file || !$content_file) throw new Exception("Lỗi upload file!");
+
+        $stmt = $conn->prepare("INSERT INTO sub_lessons (course_id, title, description, video_file, content_file, order_number) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssi", $course_id, $title, $description, $video_file, $content_file, $order_number);
+        $stmt->execute() ? $success = "Thêm bài học con thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý thêm câu hỏi kiểm tra
+if (isset($_POST['add_test_question'])) {
+    try {
+        $sub_lesson_id = filter_var($_POST['sub_lesson_id'], FILTER_SANITIZE_NUMBER_INT);
+        $question_text = filter_var($_POST['question_text'], FILTER_SANITIZE_STRING);
+        $option_a = filter_var($_POST['option_a'], FILTER_SANITIZE_STRING);
+        $option_b = filter_var($_POST['option_b'], FILTER_SANITIZE_STRING);
+        $option_c = filter_var($_POST['option_c'], FILTER_SANITIZE_STRING);
+        $option_d = filter_var($_POST['option_d'], FILTER_SANITIZE_STRING);
+        $correct_answer = filter_var($_POST['correct_answer'], FILTER_SANITIZE_STRING);
+
+        $stmt = $conn->prepare("INSERT INTO sub_lesson_tests (sub_lesson_id, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
+        $stmt->execute() ? $success = "Thêm câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa khóa học
 if (isset($_GET['delete_course'])) {
     try {
         $course_id = filter_var($_GET['delete_course'], FILTER_SANITIZE_NUMBER_INT);
         $stmt = $conn->prepare("DELETE FROM courses WHERE id = ?");
         $stmt->bind_param("i", $course_id);
         $stmt->execute() ? $success = "Xóa khóa học thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa bài học con
+if (isset($_GET['delete_sub_lesson'])) {
+    try {
+        $sub_lesson_id = filter_var($_GET['delete_sub_lesson'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        $stmt->bind_param("i", $sub_lesson_id);
+        $stmt->execute() ? $success = "Xóa bài học con thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa câu hỏi kiểm tra
+if (isset($_GET['delete_test_question'])) {
+    try {
+        $question_id = filter_var($_GET['delete_test_question'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        $stmt->bind_param("i", $question_id);
+        $stmt->execute() ? $success = "Xóa câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
         $stmt->close();
     } catch (Exception $e) {
         $error = "Lỗi: " . $e->getMessage();
@@ -128,6 +195,8 @@ while ($course = $result_courses->fetch_assoc()) {
     $popular_courses[$course['title']] = rand(10, 100); // Giả lập lượt thích
 }
 $result_courses->data_seek(0);
+
+$result_contacts = $conn->query("SELECT id, user_id, username, message, status, reply, created_at, replied_at FROM contacts ORDER BY created_at DESC");
 ?>
 
 <!DOCTYPE html>
@@ -135,9 +204,205 @@ $result_courses->data_seek(0);
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Admin Dashboard - TOEIC Learning</title>
+    <link rel="stylesheet" href="../style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 250px;
+            background-color: #2c3e50;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+
+        .sidebar ul {
+            list-style: none;
+        }
+
+        .sidebar ul li {
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        .sidebar ul li:hover {
+            background-color: #34495e;
+        }
+
+        .sidebar ul li.active {
+            background-color: #3498db;
+        }
+
+        .sidebar ul li a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 30px;
+            background-color: #fff;
+        }
+
+        .content-section {
+            display: none;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        .main-content h1 {
+            font-size: 28px;
+            margin-bottom: 20px;
+            color: #2c3e50;
+        }
+
+        form {
+            margin-bottom: 30px;
+        }
+
+        form input, form textarea, form select {
+            padding: 10px;
+            margin: 5px 0;
+            width: calc(100% - 22px);
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        form button {
+            padding: 10px 20px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        form button:hover {
+            background-color: #218838;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        table th, table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        table th {
+            background-color: #f8f9fa;
+            color: #2c3e50;
+        }
+
+        table td img {
+            max-width: 100px;
+            border-radius: 5px;
+        }
+
+        table td a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        table td a.delete-btn {
+            color: #dc3545;
+        }
+
+        table td a:hover {
+            text-decoration: underline;
+        }
+
+        .chart-container {
+            max-width: 600px;
+            margin: 20px 0;
+        }
+
+        .success {
+            color: #28a745;
+            padding: 10px;
+            background-color: #e9f7ef;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .error {
+            color: #dc3545;
+            padding: 10px;
+            background-color: #f8e1e1;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .reply-btn {
+            padding: 5px 10px;
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .reply-btn:hover {
+            background-color: #2980b9;
+        }
+
+        /* CSS cho accordion */
+        .accordion-header {
+            background: #f9fbfd;
+            padding: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .accordion-header span {
+            font-size: 18px;
+            color: #3498db;
+        }
+
+        .accordion-content {
+            display: none;
+            padding: 15px;
+            background: #fff;
+        }
+
+        .accordion-content.active {
+            display: block;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -146,13 +411,12 @@ $result_courses->data_seek(0);
             <ul>
                 <li onclick="showSection('dashboard')" class="active">Dashboard</li>
                 <li onclick="showSection('users')">Quản Lý Người Dùng</li>
-                <li onclick="showSection('products')">Quản Lý Khóa Học</li>
-                <li onclick="showSection('test')">Quản Lý Bài Thi</li>
+                <li onclick="showSection('courses')">Quản Lý Khóa Học</li>
                 <li onclick="showSection('contacts')">Quản Lý Tin Nhắn</li>
                 <li><a href="../auth/logout.php">Đăng xuất</a></li>
             </ul>
         </div>
-        
+
         <div class="main-content">
             <?php if (isset($success)): ?><p class="success"><?php echo $success; ?></p><?php endif; ?>
             <?php if (isset($error)): ?><p class="error"><?php echo $error; ?></p><?php endif; ?>
@@ -188,16 +452,16 @@ $result_courses->data_seek(0);
                 </table>
             </div>
 
-            <div id="products" class="content-section">
+            <div id="courses" class="content-section">
                 <h1>Quản Lý Khóa Học</h1>
                 <form method="POST" enctype="multipart/form-data">
                     <input type="text" name="title" placeholder="Tên khóa học" required>
                     <textarea name="description" placeholder="Mô tả" required></textarea>
                     <input type="text" name="teacher_name" placeholder="Giáo viên" required>
                     <input type="number" name="price" placeholder="Giá" required>
-                    <input type="file" name="course_image" accept="image/*" required>
-                    <input type="file" name="course_content" accept=".pdf" required>
-                    <input type="file" name="course_video" accept="video/*" required>
+                    <input type="file" name="image" accept="image/*" required>
+                    <input type="file" name="content_file" accept=".pdf" required>
+                    <input type="file" name="video_file" accept="video/*" required>
                     <button type="submit" name="add_course">Thêm</button>
                 </form>
                 <table>
@@ -205,7 +469,90 @@ $result_courses->data_seek(0);
                     <?php while ($course = $result_courses->fetch_assoc()): ?>
                         <tr>
                             <td><?php echo $course['id']; ?></td>
-                            <td><?php echo htmlspecialchars($course['title']); ?></td>
+                            <td>
+                                <div class="accordion-header">
+                                    <span><?php echo htmlspecialchars($course['title']); ?></span>
+                                    <span>▼</span>
+                                </div>
+                                <div class="accordion-content">
+                                    <!-- Hiển thị bài học con -->
+                                    <h3 style="margin: 10px 0;">Bài học con</h3>
+                                    <form method="POST" enctype="multipart/form-data">
+                                        <input type="hidden" name="course_id" value="<?php echo $course['id']; ?>">
+                                        <input type="text" name="title" placeholder="Tiêu đề bài học" required>
+                                        <textarea name="description" placeholder="Mô tả bài học" required></textarea>
+                                        <input type="number" name="order_number" placeholder="Thứ tự bài học" required>
+                                        <input type="file" name="video_file" accept="video/*" required>
+                                        <input type="file" name="content_file" accept=".pdf" required>
+                                        <button type="submit" name="add_sub_lesson">Thêm bài học con</button>
+                                    </form>
+                                    <table style="margin-top: 10px;">
+                                        <tr><th>ID</th><th>Tiêu đề</th><th>Mô tả</th><th>Thứ tự</th><th>Tài liệu</th><th>Video</th><th>Hành động</th></tr>
+                                        <?php
+                                        $sub_lessons = $conn->query("SELECT * FROM sub_lessons WHERE course_id = {$course['id']} ORDER BY order_number ASC");
+                                        while ($sub_lesson = $sub_lessons->fetch_assoc()):
+                                        ?>
+                                            <tr>
+                                                <td><?php echo $sub_lesson['id']; ?></td>
+                                                <td>
+                                                    <div class="accordion-header">
+                                                        <span><?php echo htmlspecialchars($sub_lesson['title']); ?></span>
+                                                        <span>▼</span>
+                                                    </div>
+                                                    <div class="accordion-content">
+                                                        <!-- Form thêm câu hỏi kiểm tra -->
+                                                        <h4 style="margin: 10px 0;">Thêm câu hỏi kiểm tra</h4>
+                                                        <form method="POST">
+                                                            <input type="hidden" name="sub_lesson_id" value="<?php echo $sub_lesson['id']; ?>">
+                                                            <textarea name="question_text" placeholder="Câu hỏi" required></textarea>
+                                                            <input type="text" name="option_a" placeholder="Lựa chọn A" required>
+                                                            <input type="text" name="option_b" placeholder="Lựa chọn B" required>
+                                                            <input type="text" name="option_c" placeholder="Lựa chọn C" required>
+                                                            <input type="text" name="option_d" placeholder="Lựa chọn D" required>
+                                                            <select name="correct_answer" required>
+                                                                <option value="A">A</option>
+                                                                <option value="B">B</option>
+                                                                <option value="C">C</option>
+                                                                <option value="D">D</option>
+                                                            </select>
+                                                            <button type="submit" name="add_test_question">Thêm câu hỏi</button>
+                                                        </form>
+                                                        <!-- Danh sách câu hỏi kiểm tra -->
+                                                        <h4 style="margin: 10px 0;">Danh sách câu hỏi kiểm tra</h4>
+                                                        <table style="margin-top: 10px;">
+                                                            <tr><th>ID</th><th>Câu hỏi</th><th>Lựa chọn A</th><th>Lựa chọn B</th><th>Lựa chọn C</th><th>Lựa chọn D</th><th>Đáp án đúng</th><th>Hành động</th></tr>
+                                                            <?php
+                                                            $questions = $conn->query("SELECT * FROM sub_lesson_tests WHERE sub_lesson_id = {$sub_lesson['id']}");
+                                                            while ($question = $questions->fetch_assoc()):
+                                                            ?>
+                                                                <tr>
+                                                                    <td><?php echo $question['id']; ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['question_text']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_a']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_b']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_c']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['option_d']); ?></td>
+                                                                    <td><?php echo htmlspecialchars($question['correct_answer']); ?></td>
+                                                                    <td>
+                                                                        <a class="delete-btn" href="?delete_test_question=<?php echo $question['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                                                                    </td>
+                                                                </tr>
+                                                            <?php endwhile; ?>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                                <td><?php echo htmlspecialchars($sub_lesson['description']); ?></td>
+                                                <td><?php echo $sub_lesson['order_number']; ?></td>
+                                                <td><a href="<?php echo $sub_lesson['content_file']; ?>" target="_blank">Xem</a></td>
+                                                <td><a href="<?php echo $sub_lesson['video_file']; ?>" target="_blank">Xem</a></td>
+                                                <td>
+                                                    <a class="delete-btn" href="?delete_sub_lesson=<?php echo $sub_lesson['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                                                </td>
+                                            </tr>
+                                        <?php endwhile; ?>
+                                    </table>
+                                </div>
+                            </td>
                             <td><?php echo number_format($course['price'], 0, ',', '.'); ?> VNĐ</td>
                             <td><?php echo htmlspecialchars($course['teacher_name']); ?></td>
                             <td>
@@ -217,15 +564,14 @@ $result_courses->data_seek(0);
                             </td>
                             <td><a href="<?php echo $course['content_file']; ?>" target="_blank">Xem</a></td>
                             <td><a href="<?php echo $course['video_file']; ?>" target="_blank">Xem</a></td>
-                            <td><a class="delete-btn" href="?delete_course=<?php echo $course['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a></td>
+                            <td>
+                                <a href="course_detail.php?id=<?php echo $course['id']; ?>">Xem chi tiết</a>
+                                <a class="delete-btn" href="?delete_course=<?php echo $course['id']; ?>" onclick="return confirm('Xác nhận xóa?')">Xóa</a>
+                            </td>
                         </tr>
                     <?php endwhile; ?>
                 </table>
                 <?php $result_courses->close(); ?>
-            </div>
-
-            <div id="test" class="content-section">
-                <?php // include '../test/admin.php'; ?>
             </div>
 
             <div id="contacts" class="content-section">
@@ -288,6 +634,16 @@ $result_courses->data_seek(0);
                     const id = button.getAttribute('data-id');
                     const message = JSON.parse(button.getAttribute('data-message'));
                     showReplyForm(id, message);
+                });
+            });
+
+            // Gán sự kiện cho tất cả các accordion (cả khóa học và bài học con)
+            document.querySelectorAll('.accordion-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const arrow = header.querySelector('span:last-child');
+                    content.classList.toggle('active');
+                    arrow.textContent = content.classList.contains('active') ? '▲' : '▼';
                 });
             });
 
