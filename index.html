@@ -5,6 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>English Learning</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        body {
+            background: linear-gradient(135deg, #e0f7fa, #80deea); /* Gradient nền toàn trang */
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(90deg, #006064, #00acc1); /* Gradient header */
+            color: #fff;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        header .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        header .auth a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+            transition: color 0.3s;
+        }
+        header .auth a:hover {
+            color: #00bcd4;
+        }
+        .hero {
+            background: linear-gradient(135deg, #0288d1, #4fc3f7); /* Gradient hero */
+            color: #fff;
+            text-align: center;
+            padding: 100px 20px;
+        }
+        .hero h1 {
+            font-size: 48px;
+            animation: fadeIn 1s;
+        }
+        .hero p {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+        .hero .btn {
+            background: #3498db;
+            color: #fff;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: opacity 0.3s;
+        }
+        .hero .btn:hover {
+            opacity: 0.8;
+        }
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+            }
+            header .auth {
+                margin-top: 10px;
+            }
+            header .auth a {
+                margin: 5px;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
