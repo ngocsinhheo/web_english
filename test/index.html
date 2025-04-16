@@ -4,36 +4,287 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>TOEIC Test</title>
-    <link rel="stylesheet" href="../style.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #e0f7fa, #80deea);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        main {
+            flex: 1;
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(90deg, #006064, #00acc1);
+            color: #fff;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .logo a {
+            color: #fff;
+            text-decoration: none;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+            transition: color 0.3s;
+        }
+        nav a:hover {
+            color: #00bcd4;
+        }
+        header h1 {
+            font-size: 24px;
+            margin: 0;
+        }
+        .audio-player {
+            margin: 0 20px;
+        }
+        .audio-player audio {
+            border-radius: 5px;
+        }
+        #exitBtn {
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            color: #fff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        #exitBtn:hover {
+            background: linear-gradient(90deg, #c82333, #bd2130);
+        }
+        .container {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 20px auto;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 20px;
+        }
+        .part-navigation {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+            width: 120px;
+        }
+        .part-btn {
+            background: #e0f7fa;
+            color: #006064;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.3s;
+        }
+        .part-btn:hover {
+            background: #b3e5fc;
+            transform: translateY(-2px);
+        }
+        .part-btn.active {
+            background: linear-gradient(90deg, #3498db, #2980b9);
+            color: #fff;
+        }
+        .question-section {
+            flex: 1;
+            background: #f9fbfd;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .sidebar {
+            width: 300px;
+            background: #f9fbfd;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        .timer {
+            font-size: 18px;
+            color: #006064;
+            margin-bottom: 20px;
+        }
+        .question-list-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #006064;
+            margin-bottom: 10px;
+        }
+        .question-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        #submitBtn {
+            width: 100%;
+            background: linear-gradient(90deg, #2ecc71, #27ae60);
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.3);
+        }
+        #submitBtn:hover {
+            background: linear-gradient(90deg, #27ae60, #219653);
+        }
+        #scoreDisplay {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #006064;
+            text-align: center;
+        }
+        .scroll-top-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #0288d1;
+            color: #fff;
+            padding: 10px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: none;
+        }
+        footer {
+            background: linear-gradient(90deg, #006064, #00acc1);
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+        }
+        footer a {
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            margin: 5px 0;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 768px) {
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            nav {
+                margin-top: 10px;
+            }
+            nav a {
+                margin: 5px;
+            }
+            header h1 {
+                font-size: 20px;
+            }
+            .audio-player {
+                margin: 10px 0;
+            }
+            .container {
+                flex-direction: column;
+                padding: 10px;
+            }
+            .part-navigation {
+                width: 100%;
+                align-items: center;
+            }
+            .part-btn {
+                width: 100px;
+            }
+            .sidebar {
+                width: 100%;
+            }
+            footer div {
+                margin-bottom: 20px;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
-        <h1>TOEIC Test <span id="testTitle"></span></h1>
-        <div class="audio-player">
-            <audio id="audioPlayer" controls><source id="audioSource" src="" type="audio/mpeg"></audio>
+        <div class="logo"><a href="../admin/dashboard.php">English Learning</a></div>
+        <div style="display: flex; align-items: center; gap: 20px;">
+            <h1>TOEIC Test <span id="testTitle"></span></h1>
+            <div class="audio-player">
+                <audio id="audioPlayer" controls><source id="audioSource" src="" type="audio/mpeg"></audio>
+            </div>
+            <button id="exitBtn">Thoát</button>
         </div>
-        <button id="exitBtn">Thoát</button>
-    </header>
-    <div class="container">
-        <nav class="part-navigation">
-            <button class="part-btn active" data-part="1">Part 1</button>
-            <button class="part-btn" data-part="2">Part 2</button>
-            <button class="part-btn" data-part="3">Part 3</button>
-            <button class="part-btn" data-part="4">Part 4</button>
-            <button class="part-btn" data-part="5">Part 5</button>
-            <button class="part-btn" data-part="6">Part 6</button>
-            <button class="part-btn" data-part="7">Part 7</button>
+        <nav>
+            <a href="../admin/dashboard.php">Trang chủ</a>
+            <a href="../test/select_test.php">Thi thử</a>
+            <a href="../profile.php">Hồ sơ</a>
+            <a href="../contact.php">Liên hệ</a>
+            <a href="../auth/logout.php" style="color: #ff5252;">Đăng xuất</a>
         </nav>
-        <section id="questionSection" class="question-section"></section>
-        <aside class="sidebar">
-            <div class="timer">Thời gian: <span id="timeDisplay">120:00</span></div>
-            <div class="question-list-title">Câu hỏi</div>
-            <div class="question-list" id="questionList"></div>
-            <button id="submitBtn">Nộp bài</button>
-            <div id="scoreDisplay">Điểm: 0/200</div>
-        </aside>
-    </div>
-    <button id="scrollTopBtn" class="scroll-top-btn">Lên đầu</button>
+    </header>
+
+    <main>
+        <div class="container">
+            <nav class="part-navigation">
+                <button class="part-btn active" data-part="1">Part 1</button>
+                <button class="part-btn" data-part="2">Part 2</button>
+                <button class="part-btn" data-part="3">Part 3</button>
+                <button class="part-btn" data-part="4">Part 4</button>
+                <button class="part-btn" data-part="5">Part 5</button>
+                <button class="part-btn" data-part="6">Part 6</button>
+                <button class="part-btn" data-part="7">Part 7</button>
+            </nav>
+            <section id="questionSection" class="question-section"></section>
+            <aside class="sidebar">
+                <div class="timer">Thời gian: <span id="timeDisplay">120:00</span></div>
+                <div class="question-list-title">Câu hỏi</div>
+                <div class="question-list" id="questionList"></div>
+                <button id="submitBtn">Nộp bài</button>
+                <div id="scoreDisplay">Điểm: 0/200</div>
+            </aside>
+        </div>
+    </main>
+
+    <footer>
+        <div style="max-width: 1200px; margin: 0 auto;">
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px;">
+                <div>
+                    <h3>English Learning</h3>
+                    <p>Học tiếng Anh dễ dàng và hiệu quả!</p>
+                </div>
+                <div>
+                    <h3>Liên kết</h3>
+                    <a href="../about.php">Giới thiệu</a>
+                    <a href="../contact.php">Liên hệ</a>
+                    <a href="../policy.php">Chính sách</a>
+                </div>
+                <div>
+                    <h3>Liên hệ</h3>
+                    <p>Email: support@englishlearning.com</p>
+                    <p>Hotline: 0123 456 789</p>
+                </div>
+            </div>
+            <p>© 2025 English Learning. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <button id="scrollTopBtn" class="scroll-top-btn">↑</button>
     <script src="script.js"></script>
 </body>
 </html>
