@@ -23,10 +23,8 @@ function handleFileUpload($file, $targetDir) {
         throw new Exception("Loại tệp không được hỗ trợ!");
     }
 
-    // Kiểm tra kích thước tệp (tối đa 5MB)
-    if ($file['size'] > 5 * 1024 * 1024) {
-        throw new Exception("Tệp quá lớn! Tối đa 5MB.");
-    }
+    // Bỏ kiểm tra kích thước tệp để cho phép upload video nặng
+    // Giới hạn kích thước đã được loại bỏ để hỗ trợ video bất kỳ kích thước
 
     return move_uploaded_file($file["tmp_name"], $targetPath) ? $targetPath : false;
 }
@@ -86,7 +84,7 @@ if (isset($_POST['add_course'])) {
         $description = filter_var($_POST['description'], FILTER_SANITIZE_STRING);
         $teacher_name = filter_var($_POST['teacher_name'], FILTER_SANITIZE_STRING);
         $price = filter_var($_POST['price'], FILTER_SANITIZE_NUMBER_FLOAT, FILTER_FLAG_ALLOW_FRACTION);
-        $target_dir = "../uploads/";
+        $target_dir = "../Uploads/";
         
         $image = handleFileUpload($_FILES["image"], $target_dir);
         $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
@@ -110,7 +108,7 @@ if (isset($_POST['add_sub_lesson'])) {
         $title = filter_var($_POST['title'], FILTER_SANITIZE_STRING);
         $description = filter_var($_POST['description'], FILTER_SANITIZE_STRING);
         $order_number = filter_var($_POST['order_number'], FILTER_SANITIZE_NUMBER_INT);
-        $target_dir = "../uploads/";
+        $target_dir = "../Uploads/";
 
         $video_file = handleFileUpload($_FILES["video_file"], $target_dir);
         $content_file = handleFileUpload($_FILES["content_file"], $target_dir);
@@ -176,8 +174,7 @@ if (isset($_GET['delete_sub_lesson'])) {
 if (isset($_GET['delete_test_question'])) {
     try {
         $question_id = filter_var($_GET['delete_test_question'], FILTER_SANITIZE_NUMBER_INT);
-        // SỬA LẠI TÊN BẢNG Ở ĐÂY:
-        $stmt = $conn->prepare("DELETE FROM sub_lesson_tests WHERE id = ?");
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
         $stmt->bind_param("i", $question_id);
         $stmt->execute() ?
         $success = "Xóa câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
@@ -463,6 +460,7 @@ $result_contacts = $conn->query("SELECT id, user_id, username, message, status, 
                     <input type="file" name="image" accept="image/*" required>
                     <input type="file" name="content_file" accept=".pdf" required>
                     <input type="file" name="video_file" accept="video/*" required>
+                    <p><small>Lưu ý: Video có thể có kích thước bất kỳ, nhưng hãy đảm bảo kết nối mạng ổn định.</small></p>
                     <button type="submit" name="add_course">Thêm</button>
                 </form>
                 <table>
