@@ -522,7 +522,7 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                 <th>Thứ tự</th>
                 <th>Tài liệu</th>
                 <th>Video</th>
-                <th>Hành động</th>
+                
             </tr>
         </thead>
         <tbody id="sub-lesson-table-body">
@@ -540,10 +540,6 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                     <td><?php echo $sub_lesson['order_number']; ?></td>
                     <td><a href="<?php echo $sub_lesson['content_file']; ?>" target="_blank"><i class="fas fa-file-pdf"></i> Xem</a></td>
                     <td><a href="<?php echo $sub_lesson['video_url']; ?>" target="_blank"><i class="fas fa-video"></i> Xem</a></td>
-                    <td>
-                        <button class="edit-sub-lesson-btn" data-sub-lesson-id="<?php echo $sub_lesson['id']; ?>" data-course-id="<?php echo $sub_lesson['course_id']; ?>" data-title="<?php echo htmlspecialchars($sub_lesson['title']); ?>" data-description="<?php echo htmlspecialchars($sub_lesson['description']); ?>" data-order-number="<?php echo $sub_lesson['order_number']; ?>" data-youtube-link="<?php echo htmlspecialchars($sub_lesson['video_url']); ?>"><i class="fas fa-edit"></i> Sửa</button>
-                        <a class="delete-btn" href="?delete_sub_lesson=<?php echo $sub_lesson['id']; ?>" onclick="return confirm('Xác nhận xóa?')"><i class="fas fa-trash"></i> Xóa</a>
-                    </td>
                 </tr>
             <?php endwhile; } ?>
         </tbody>
