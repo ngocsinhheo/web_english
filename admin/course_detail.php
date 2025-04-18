@@ -112,12 +112,6 @@ $sub_lessons = $stmt->get_result();
             color: #006064;
             margin-bottom: 10px;
         }
-        .course-header p {
-            font-size: 18px;
-            color: #7f8c8d;
-            max-width: 800px;
-            margin: 0 auto;
-        }
         .content-wrapper {
             display: flex;
             width: 100%;
@@ -129,9 +123,22 @@ $sub_lessons = $stmt->get_result();
         }
         .right-content {
             width: 800px;
-            position: sticky;
+            
             top: 20px;
             align-self: flex-start;
+        }
+        .course-image {
+            width: 100%;
+            height: 450px;
+            object-fit: cover;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .course-description {
+            font-size: 16px;
+            color: #7f8c8d;
+            line-height: 1.6;
         }
         .sub-lesson {
             margin-bottom: 20px;
@@ -264,6 +271,9 @@ $sub_lessons = $stmt->get_result();
                 width: 100%;
                 position: static;
             }
+            .course-image {
+                height: 300px;
+            }
             .video-container {
                 padding-bottom: 75%; /* Tỷ lệ 4:3 cho di động nếu cần */
             }
@@ -291,7 +301,6 @@ $sub_lessons = $stmt->get_result();
         <div class="course-detail-container">
             <div class="course-header">
                 <h1><?php echo htmlspecialchars($course['title']); ?></h1>
-                <p><?php echo htmlspecialchars($course['description']); ?></p>
             </div>
 
             <div class="content-wrapper">
@@ -320,31 +329,9 @@ $sub_lessons = $stmt->get_result();
                 </div>
 
                 <div class="right-content">
-                    <!-- Video của khóa học (mặc định) -->
-                    <?php if (!empty($course['video_file'])): ?>
-                        <?php $course_video_id = getYouTubeVideoId($course['video_file']); ?>
-                        <?php if ($course_video_id): ?>
-                            <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
-                                <iframe 
-                                    width="100%" 
-                                    height="100%" 
-                                    src="https://www.youtube.com/embed/<?php echo htmlspecialchars($course_video_id); ?>" 
-                                    title="YouTube video player" 
-                                    frameborder="0" 
-                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                                    allowfullscreen>
-                                </iframe>
-                            </div>
-                        <?php else: ?>
-                            <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
-                                <p>Link video của khóa học không hợp lệ.</p>
-                            </div>
-                        <?php endif; ?>
-                    <?php else: ?>
-                        <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
-                            <p>Không có video cho khóa học này.</p>
-                        </div>
-                    <?php endif; ?>
+                    <!-- Hình ảnh khóa học (mặc định) -->
+                    <img src="<?php echo htmlspecialchars($course['image'] ?: '../images/default-course.jpg'); ?>" alt="<?php echo htmlspecialchars($course['title']); ?>" class="course-image" loading="lazy">
+                    <p class="course-description"><?php echo htmlspecialchars($course['description']); ?></p>
 
                     <!-- Video của bài học con -->
                     <?php if ($sub_lessons->num_rows > 0): ?>
@@ -366,7 +353,7 @@ $sub_lessons = $stmt->get_result();
                                     </div>
                                 <?php else: ?>
                                     <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
-                                        <p></p>
+                                        <p>Link video không hợp lệ.</p>
                                     </div>
                                 <?php endif; ?>
                             <?php endif; ?>
@@ -418,11 +405,12 @@ $sub_lessons = $stmt->get_result();
                 if (isActive) {
                     content.classList.remove('active');
                     arrow.textContent = '▼';
-
-                    // Hiển thị lại video của khóa học khi đóng bài học con
-                    const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
-                    if (courseVideo) {
-                        courseVideo.style.display = 'block';
+                    // Ẩn video bài học con, hiển thị hình ảnh và mô tả khóa học
+                    const courseImage = document.querySelector('.course-image');
+                    const courseDescription = document.querySelector('.course-description');
+                    if (courseImage && courseDescription) {
+                        courseImage.style.display = 'block';
+                        courseDescription.style.display = 'block';
                         rightContent.classList.add('active');
                     }
                 } else {
@@ -441,28 +429,32 @@ $sub_lessons = $stmt->get_result();
                     const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
                     if (lessonId) {
                         const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
+                        const courseImage = document.querySelector('.course-image');
+                        const courseDescription = document.querySelector('.course-description');
                         if (videoContainer) {
                             videoContainer.style.display = 'block';
+                            courseImage.style.display = 'none';
+                            courseDescription.style.display = 'none';
                             rightContent.classList.add('active');
                         } else {
-                            // Nếu không có video bài học con, hiển thị video khóa học
-                            const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
-                            if (courseVideo) {
-                                courseVideo.style.display = 'block';
-                                rightContent.classList.add('active');
-                            }
+                            // Nếu không có video bài học con, hiển thị hình ảnh khóa học
+                            courseImage.style.display = 'block';
+                            courseDescription.style.display = 'block';
+                            rightContent.classList.add('active');
                         }
                     }
                 }
             });
         });
 
-        // Hiển thị video khóa học mặc định khi tải trang
+        // Hiển thị hình ảnh khóa học và mô tả mặc định khi tải trang
         document.addEventListener('DOMContentLoaded', () => {
             const rightContent = document.querySelector('.right-content');
-            const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
-            if (courseVideo) {
-                courseVideo.style.display = 'block';
+            const courseImage = document.querySelector('.course-image');
+            const courseDescription = document.querySelector('.course-description');
+            if (courseImage && courseDescription) {
+                courseImage.style.display = 'block';
+                courseDescription.style.display = 'block';
                 rightContent.classList.add('active');
             }
         });

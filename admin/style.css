@@ -500,3 +500,38 @@ td img {
     max-width: 300px;
     margin-bottom: 20px;
 }
+.why-us {
+    padding: 50px 20px;
+    text-align: center;
+    background: #fff;
+}
+.features {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+}
+.feature {
+    width: 30%;
+    margin: 10px;
+    padding: 20px;
+    background: #f5f5f5;
+    border-radius: 10px;
+}
+@media (max-width: 768px) {
+    .feature {
+        width: 100%;
+    }
+}
+.testimonials {
+    padding: 50px 20px;
+    background: linear-gradient(135deg, #b3e5fc, #4fc3f7);
+    color: #fff;
+    text-align: center;
+}
+.testimonial {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+}

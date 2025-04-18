@@ -3,76 +3,391 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Học Tiếng Anh từ cơ bản đến nâng cao với English Learning. Khóa học chất lượng, giáo viên bản ngữ, lộ trình cá nhân hóa.">
+    <meta name="keywords" content="học tiếng Anh, khóa học tiếng Anh, tiếng Anh giao tiếp, IELTS">
     <title>English Learning</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-20px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
         body {
-            background: linear-gradient(135deg, #e0f7fa, #80deea); /* Gradient nền toàn trang */
-            margin: 0;
-            font-family: Arial, sans-serif;
+            font-family: 'Poppins', sans-serif;
+            background: #e0f7fa;
+            color: #333;
+            line-height: 1.6;
         }
+
         header {
             position: sticky;
             top: 0;
-            background: linear-gradient(90deg, #006064, #00acc1); /* Gradient header */
+            background: #006064;
             color: #fff;
-            padding: 10px 20px;
+            padding: 15px 30px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
         }
+
         header .logo {
-            font-size: 24px;
-            font-weight: bold;
+            font-size: 28px;
+            font-weight: 700;
         }
+
         header .auth a {
             color: #fff;
             text-decoration: none;
-            margin: 0 15px;
-            transition: color 0.3s;
+            margin: 0 20px;
+            font-size: 16px;
+            transition: color 0.3s ease;
         }
+
         header .auth a:hover {
-            color: #00bcd4;
+            color: #4dd0e1;
         }
+
         .hero {
-            background: linear-gradient(135deg, #0288d1, #4fc3f7); /* Gradient hero */
+            position: relative;
+            background: url('https://images.unsplash.com/photo-1523240795612-9a054b0db644?q=80&w=2070&auto=format&fit=crop') no-repeat center center/cover;
             color: #fff;
             text-align: center;
-            padding: 100px 20px;
+            padding: 120px 20px;
+            animation: fadeIn 1s ease-in;
         }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 1;
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
         .hero h1 {
             font-size: 48px;
-            animation: fadeIn 1s;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
+
         .hero p {
             font-size: 24px;
-            margin: 20px 0;
+            margin-bottom: 30px;
         }
+
         .hero .btn {
-            background: #3498db;
+            background: #00acc1;
+            color: #fff;
+            padding: 12px 30px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            transition: background 0.3s ease, transform 0.3s ease;
+        }
+
+        .hero .btn:hover {
+            background: #00838f;
+            transform: translateY(-3px);
+        }
+
+        .why-us {
+            padding: 60px 20px;
+            background: #fff;
+            text-align: center;
+        }
+
+        .why-us h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #006064;
+        }
+
+        .features {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .feature {
+            background: #e0f7fa;
+            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .feature:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature h3 {
+            font-size: 22px;
+            color: #006064;
+            margin-bottom: 10px;
+        }
+
+        .feature p {
+            font-size: 16px;
+            color: #555;
+        }
+
+        .courses {
+            padding: 60px 20px;
+            background: #e0f7fa;
+            text-align: center;
+        }
+
+        .courses h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #006064;
+        }
+
+        .course-list {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .course {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .course:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .course h3 {
+            font-size: 22px;
+            color: #006064;
+            margin-bottom: 10px;
+        }
+
+        .course p {
+            font-size: 16px;
+            color: #555;
+            margin-bottom: 15px;
+        }
+
+        .course .btn {
+            background: #00acc1;
             color: #fff;
             padding: 10px 20px;
             text-decoration: none;
+            border-radius: 50px;
+            font-size: 16px;
+            transition: background 0.3s ease;
+        }
+
+        .course .btn:hover {
+            background: #00838f;
+        }
+
+        .stats {
+            padding: 60px 20px;
+            background: #006064;
+            color: #fff;
+            text-align: center;
+        }
+
+        .stats h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+        }
+
+        .stats-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .stat {
+            width: 200px;
+        }
+
+        .stat h3 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .stat p {
+            font-size: 16px;
+        }
+
+        .testimonials {
+            padding: 60px 20px;
+            background: #e0f7fa;
+            text-align: center;
+        }
+
+        .testimonials h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #006064;
+        }
+
+        .testimonial-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .testimonial {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            width: 300px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .testimonial:hover {
+            transform: translateY(-5px);
+        }
+
+        .testimonial p {
+            font-size: 16px;
+            margin-bottom: 10px;
+            font-style: italic;
+            color: #555;
+        }
+
+        .testimonial h4 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #006064;
+        }
+
+        .consult {
+            padding: 60px 20px;
+            background: #fff;
+            text-align: center;
+        }
+
+        .consult h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #006064;
+        }
+
+        .consult p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #555;
+        }
+
+        .consult form {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .consult input {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
             border-radius: 5px;
-            transition: opacity 0.3s;
+            width: 300px;
         }
-        .hero .btn:hover {
-            opacity: 0.8;
+
+        .consult .btn {
+            background: #00acc1;
+            color: #fff;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 50px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s ease;
         }
+
+        .consult .btn:hover {
+            background: #00838f;
+        }
+
+        footer {
+            background: #006064;
+            color: #fff;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+
+        footer p {
+            font-size: 14px;
+        }
+
         @media (max-width: 768px) {
             header {
                 flex-direction: column;
+                padding: 10px 20px;
             }
-            header .auth {
-                margin-top: 10px;
+
+            header .logo {
+                margin-bottom: 10px;
             }
+
             header .auth a {
-                margin: 5px;
+                margin: 5px 10px;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .hero p {
+                font-size: 18px;
+            }
+
+            .hero .btn {
+                padding: 10px 20px;
+                font-size: 16px;
+            }
+
+            .why-us h2, .courses h2, .stats h2, .testimonials h2, .consult h2 {
+                font-size: 28px;
+            }
+
+            .feature, .course, .testimonial, .consult input {
+                width: 100%;
+                max-width: 400px;
+            }
+
+            .stat {
+                width: 100%;
+                max-width: 200px;
             }
         }
     </style>
@@ -86,10 +401,101 @@
             <a href="auth/login.php">Liên hệ</a>
         </div>
     </header>
+
     <section class="hero">
-        <h1>Chào mừng đến với English Learning</h1>
-        <p>Học Tiếng Anh từ cơ bản đến nâng cao</p>
-        <a href="auth/login.php" class="btn">Bắt đầu ngay</a>
+        <div class="hero-content">
+            <h1>Chào mừng đến với English Learning</h1>
+            <p>Học Tiếng Anh từ cơ bản đến nâng cao với lộ trình cá nhân hóa</p>
+            <a href="auth/login.php" class="btn">Bắt đầu ngay</a>
+        </div>
     </section>
+
+    <section class="why-us">
+        <h2>Tại sao chọn English Learning?</h2>
+        <div class="features">
+            <div class="feature">
+                <h3>Học mọi lúc, mọi nơi</h3>
+                <p>Truy cập bài học trên mọi thiết bị, từ điện thoại đến máy tính.</p>
+            </div>
+            <div class="feature">
+                <h3>Giáo viên chất lượng</h3>
+                <p>Đội ngũ giáo viên bản ngữ và giàu kinh nghiệm.</p>
+            </div>
+            <div class="feature">
+                <h3>Lộ trình cá nhân hóa</h3>
+                <p>Chương trình học được thiết kế riêng theo trình độ của bạn.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="courses">
+        <h2>Khóa học nổi bật</h2>
+        <div class="course-list">
+            <div class="course">
+                <h3>Tiếng Anh giao tiếp</h3>
+                <p>Học cách giao tiếp tự nhiên trong các tình huống thực tế.</p>
+                <a href="#" class="btn">Xem chi tiết</a>
+            </div>
+            <div class="course">
+                <h3>IELTS Preparation</h3>
+                <p>Chuẩn bị kỹ lưỡng để đạt điểm cao trong kỳ thi IELTS.</p>
+                <a href="#" class="btn">Xem chi tiết</a>
+            </div>
+            <div class="course">
+                <h3>TOEIC Mastery</h3>
+                <p>Nắm vững kỹ năng để chinh phục kỳ thi TOEIC với điểm số cao.</p>
+                <a href="#" class="btn">Xem chi tiết</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="stats">
+        <h2>Thành tựu của chúng tôi</h2>
+        <div class="stats-container">
+            <div class="stat">
+                <h3>10,000+</h3>
+                <p>Học viên tham gia</p>
+            </div>
+            <div class="stat">
+                <h3>95%</h3>
+                <p>Tỷ lệ hài lòng</p>
+            </div>
+            <div class="stat">
+                <h3>50,000+</h3>
+                <p>Giờ học trực tuyến</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="testimonials">
+        <h2>Cảm nhận của học viên</h2>
+        <div class="testimonial-container">
+            <div class="testimonial">
+                <p>"English Learning đã giúp tôi tự tin giao tiếp chỉ sau 3 tháng. Giáo viên rất nhiệt tình!"</p>
+                <h4>Trần Đỗ Huy Nguyên</h4>
+            </div>
+            <div class="testimonial">
+                <p>"Lộ trình học rõ ràng, bài tập thực tế, tôi đã cải thiện kỹ năng nghe nói đáng kể."</p>
+                <h4>Nguyễn Ngọc Sinh</h4>
+            </div>
+            <div class="testimonial">
+                <p>"Học online nhưng rất hiệu quả, tôi thích cách giáo viên hỗ trợ tận tâm."</p>
+                <h4>Ngô Mai Tâm</h4>
+            </div>
+        </div>
+    </section>
+
+    <section class="consult">
+        <h2>Đăng ký nhận tư vấn miễn phí</h2>
+        <p>Để lại thông tin để chúng tôi giúp bạn tìm khóa học phù hợp nhất!</p>
+        <form>
+            <input type="email" placeholder="Nhập email của bạn" required>
+            <button type="submit" class="btn">Gửi ngay</button>
+        </form>
+    </section>
+
+    <footer>
+        <p>© 2025 English Learning. All rights reserved.</p>
+    </footer>
 </body>
 </html>
