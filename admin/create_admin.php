@@ -8,14 +8,14 @@ if ($conn->connect_error) {
 }
 
 // Kiểm tra xem tài khoản admin đã tồn tại chưa
-$sql_check = "SELECT COUNT(*) AS count FROM users WHERE email = 'admin@1'";
+$sql_check = "SELECT COUNT(*) AS count FROM users WHERE email = 'admin@123'";
 $result_check = $conn->query($sql_check);
 $row = $result_check->fetch_assoc();
 
 if ($row['count'] == 0) {
     // Tạo tài khoản admin nếu chưa tồn tại
-    $username = 'admin';
-    $email = 'admin@1';
+    $username = 'adminphu';
+    $email = 'admin@123';
     $password = '123'; // Mật khẩu gốc
     $hashed_password = password_hash($password, PASSWORD_DEFAULT); // Mã hóa mật khẩu
 

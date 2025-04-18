@@ -366,7 +366,7 @@ $sub_lessons = $stmt->get_result();
                                     </div>
                                 <?php else: ?>
                                     <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
-                                        <p>Link video không hợp lệ.</p>
+                                        <p></p>
                                     </div>
                                 <?php endif; ?>
                             <?php endif; ?>
