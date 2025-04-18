@@ -176,15 +176,16 @@ if (isset($_GET['delete_sub_lesson'])) {
 if (isset($_GET['delete_test_question'])) {
     try {
         $question_id = filter_var($_GET['delete_test_question'], FILTER_SANITIZE_NUMBER_INT);
-        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        // SỬA LẠI TÊN BẢNG Ở ĐÂY:
+        $stmt = $conn->prepare("DELETE FROM sub_lesson_tests WHERE id = ?");
         $stmt->bind_param("i", $question_id);
-        $stmt->execute() ? $success = "Xóa câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
+        $stmt->execute() ?
+        $success = "Xóa câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
         $stmt->close();
     } catch (Exception $e) {
         $error = "Lỗi: " . $e->getMessage();
     }
 }
-
 // Truy vấn dữ liệu
 $result_users = $conn->query("SELECT id, username, email FROM users WHERE role != 'admin'");
 $total_users = $result_users->num_rows ?? 0;
