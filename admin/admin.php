@@ -7,47 +7,6 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-if (isset($_POST['add_test_question'])) {
-    header('Content-Type: application/json');
-    try {
-        $sub_lesson_id = filter_var($_POST['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
-        $question_text = trim(htmlspecialchars($_POST['question_text'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_a = trim(htmlspecialchars($_POST['option_a'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_b = trim(htmlspecialchars($_POST['option_b'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_c = trim(htmlspecialchars($_POST['option_c'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_d = trim(htmlspecialchars($_POST['option_d'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $correct_answer = trim($_POST['correct_answer'] ?? '');
-
-        if ($sub_lesson_id <= 0 || empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d) || !in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
-            throw new Exception("Vui lòng điền đầy đủ và chọn đáp án đúng hợp lệ!");
-        }
-
-        // Kiểm tra trùng lặp (tùy chọn)
-        $stmt = $conn->prepare("SELECT id FROM sub_lesson_tests WHERE sub_lesson_id = ? AND question_text = ? AND option_a = ? AND option_b = ? AND option_c = ? AND option_d = ? AND correct_answer = ?");
-        $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        if ($result->num_rows > 0) {
-            throw new Exception("Câu hỏi này đã tồn tại!");
-        }
-        $stmt->close();
-
-        // Thêm câu hỏi
-        $stmt = $conn->prepare("INSERT INTO sub_lesson_tests (sub_lesson_id, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
-        if ($stmt->execute()) {
-            echo json_encode(['success' => true, 'message' => 'Thêm câu hỏi kiểm tra thành công!']);
-        } else {
-            throw new Exception($conn->error);
-        }
-        $stmt->close();
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Lỗi: ' . $e->getMessage()]);
-    }
-    exit;
-}
-
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
@@ -74,7 +33,49 @@ function handleFileUpload($file, $targetDir) {
 
     return move_uploaded_file($file["tmp_name"], $targetPath) ? $targetPath : false;
 }
+// Xử lý thêm nhiều câu hỏi kiểm tra
+if (isset($_POST['add_test_questions'])) {
+    try {
+        $sub_lesson_id = filter_var($_POST['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+        if ($sub_lesson_id <= 0) {
+            throw new Exception("Vui lòng chọn bài học con hợp lệ!");
+        }
 
+        if (!isset($_POST['questions']) || !is_array($_POST['questions'])) {
+            throw new Exception("Không có câu hỏi nào được gửi!");
+        }
+
+        $conn->begin_transaction(); // Bắt đầu giao dịch để đảm bảo toàn bộ câu hỏi được thêm hoặc không thêm gì cả
+        $stmt = $conn->prepare("INSERT INTO sub_lesson_tests (sub_lesson_id, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)");
+
+        foreach ($_POST['questions'] as $question) {
+            $question_text = trim(htmlspecialchars($question['question_text'] ?? '', ENT_QUOTES, 'UTF-8'));
+            $option_a = trim(htmlspecialchars($question['option_a'] ?? '', ENT_QUOTES, 'UTF-8'));
+            $option_b = trim(htmlspecialchars($question['option_b'] ?? '', ENT_QUOTES, 'UTF-8'));
+            $option_c = trim(htmlspecialchars($question['option_c'] ?? '', ENT_QUOTES, 'UTF-8'));
+            $option_d = trim(htmlspecialchars($question['option_d'] ?? '', ENT_QUOTES, 'UTF-8'));
+            $correct_answer = htmlspecialchars($question['correct_answer'] ?? '', ENT_QUOTES, 'UTF-8');
+
+            if (empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d) || !in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
+                throw new Exception("Dữ liệu câu hỏi không hợp lệ!");
+            }
+
+            $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
+            if (!$stmt->execute()) {
+                throw new Exception($conn->error);
+            }
+        }
+
+        $conn->commit();
+        $stmt->close();
+        $success = "Thêm tất cả câu hỏi kiểm tra thành công!";
+        header("Location: admin.php#list-test-questions");
+        exit();
+    } catch (Exception $e) {
+        $conn->rollback();
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
 // Xử lý phản hồi tin nhắn
 if (isset($_POST['reply_message'])) {
     try {
@@ -182,29 +183,7 @@ if (isset($_POST['add_course'])) {
         $error = "Lỗi: " . $e->getMessage();
     }
 }
-// Xử lý thêm câu hỏi kiểm tra
-if (isset($_POST['add_test_question'])) {
-    try {
-        $sub_lesson_id = filter_var($_POST['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
-        $question_text = trim(htmlspecialchars($_POST['question_text'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_a = trim(htmlspecialchars($_POST['option_a'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_b = trim(htmlspecialchars($_POST['option_b'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_c = trim(htmlspecialchars($_POST['option_c'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $option_d = trim(htmlspecialchars($_POST['option_d'] ?? '', ENT_QUOTES, 'UTF-8'));
-        $correct_answer = trim($_POST['correct_answer'] ?? '');
 
-        if ($sub_lesson_id <= 0 || empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d) || !in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
-            throw new Exception("Vui lòng điền đầy đủ và chọn đáp án đúng hợp lệ!");
-        }
-
-        $stmt = $conn->prepare("INSERT INTO sub_lesson_tests (sub_lesson_id, question_text, option_a, option_b, option_c, option_d, correct_answer) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssss", $sub_lesson_id, $question_text, $option_a, $option_b, $option_c, $option_d, $correct_answer);
-        $stmt->execute() ? $success = "Thêm câu hỏi kiểm tra thành công!" : throw new Exception($conn->error);
-        $stmt->close();
-    } catch (Exception $e) {
-        $error = "Lỗi: " . $e->getMessage();
-    }
-}
 // Xử lý xóa khóa học
 if (isset($_GET['delete_course'])) {
     try {
@@ -212,6 +191,19 @@ if (isset($_GET['delete_course'])) {
         $stmt = $conn->prepare("DELETE FROM courses WHERE id = ?");
         $stmt->bind_param("i", $course_id);
         $stmt->execute() ? $success = "Xóa khóa học thành công!" : throw new Exception($conn->error);
+        $stmt->close();
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+// Xử lý xóa bài học con
+if (isset($_GET['delete_sub_lesson'])) {
+    try {
+        $sub_lesson_id = filter_var($_GET['delete_sub_lesson'], FILTER_SANITIZE_NUMBER_INT);
+        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
+        $stmt->bind_param("i", $sub_lesson_id);
+        $stmt->execute() ? $success = "Xóa bài học con thành công!" : throw new Exception($conn->error);
         $stmt->close();
     } catch (Exception $e) {
         $error = "Lỗi: " . $e->getMessage();
@@ -229,31 +221,18 @@ if (isset($_GET['delete_test_question'])) {
         $error = "Lỗi: " . $e->getMessage();
     }
 }
-// Xử lý xóa bài học con
-if (isset($_GET['delete_sub_lesson'])) {
-    try {
-        $sub_lesson_id = filter_var($_GET['delete_sub_lesson'], FILTER_SANITIZE_NUMBER_INT);
-        $stmt = $conn->prepare("DELETE FROM sub_lessons WHERE id = ?");
-        $stmt->bind_param("i", $sub_lesson_id);
-        $stmt->execute() ? $success = "Xóa bài học con thành công!" : throw new Exception($conn->error);
-        $stmt->close();
-    } catch (Exception $e) {
-        $error = "Lỗi: " . $e->getMessage();
-    }
-}
-
 // Xử lý thêm câu hỏi kiểm tra
 if (isset($_POST['add_test_question'])) {
     try {
-        $sub_lesson_id = filter_var($_POST['sub_lesson_id'], FILTER_SANITIZE_NUMBER_INT);
-        $question_text = trim(htmlspecialchars($_POST['question_text'], ENT_QUOTES, 'UTF-8'));
-        $option_a = trim(htmlspecialchars($_POST['option_a'], ENT_QUOTES, 'UTF-8'));
-        $option_b = trim(htmlspecialchars($_POST['option_b'], ENT_QUOTES, 'UTF-8'));
-        $option_c = trim(htmlspecialchars($_POST['option_c'], ENT_QUOTES, 'UTF-8'));
-        $option_d = trim(htmlspecialchars($_POST['option_d'], ENT_QUOTES, 'UTF-8'));
-        
+        $sub_lesson_id = filter_var($_POST['sub_lesson_id'] ?? 0, FILTER_SANITIZE_NUMBER_INT);
+        $question_text = trim(htmlspecialchars($_POST['question_text'] ?? '', ENT_QUOTES, 'UTF-8'));
+        $option_a = trim(htmlspecialchars($_POST['option_a'] ?? '', ENT_QUOTES, 'UTF-8'));
+        $option_b = trim(htmlspecialchars($_POST['option_b'] ?? '', ENT_QUOTES, 'UTF-8'));
+        $option_c = trim(htmlspecialchars($_POST['option_c'] ?? '', ENT_QUOTES, 'UTF-8'));
+        $option_d = trim(htmlspecialchars($_POST['option_d'] ?? '', ENT_QUOTES, 'UTF-8'));
+        $correct_answer = htmlspecialchars($_POST['correct_answer'] ?? '', ENT_QUOTES, 'UTF-8');
 
-        if (empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d) || !in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
+        if ($sub_lesson_id <= 0 || empty($question_text) || empty($option_a) || empty($option_b) || empty($option_c) || empty($option_d) || !in_array($correct_answer, ['A', 'B', 'C', 'D'])) {
             throw new Exception("Vui lòng điền đầy đủ và chọn đáp án đúng hợp lệ!");
         }
 
@@ -414,43 +393,7 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                 <input type="file" name="content_file" id="content_file" accept=".pdf" required>
             </div>
         </div>
-        <div class="form-group">
-            <label for="youtube_link">Link YouTube</label>
-            <input type="text" name="youtube_link" id="youtube_link" placeholder="Nhập link YouTube" required>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="category">Danh mục</label>
-                <select name="category" id="category" required>
-                    <option value="grammar">Ngữ pháp</option>
-                    <option value="reading">Đọc hiểu</option>
-                    <option value="listening">Nghe</option>
-                    <option value="pronunciation">Phát âm</option>
-                    <option value="free" selected>Miễn phí</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="media_type">Loại media</label>
-                <select name="media_type" id="media_type" required>
-                    <option value="video" selected>Video</option>
-                    <option value="audio">Audio</option>
-                </select>
-            </div>
-        </div>
-        <div class="form-group">
-            <label for="learning_outcomes">Kết quả học tập</label>
-            <textarea name="learning_outcomes" id="learning_outcomes" placeholder="Nhập kết quả học tập"></textarea>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="start_date">Ngày bắt đầu</label>
-                <input type="date" name="start_date" id="start_date" placeholder="Chọn ngày bắt đầu">
-            </div>
-            <div class="form-group">
-                <label for="end_date">Ngày kết thúc</label>
-                <input type="date" name="end_date" id="end_date" placeholder="Chọn ngày kết thúc">
-            </div>
-        </div>
+
         <button type="submit" name="add_course"><i class="fas fa-plus"></i> Thêm khóa học</button>
     </form>
 </div>
@@ -553,8 +496,8 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
             <button type="button" id="open-sub-lesson-modal"><i class="fas fa-plus"></i> Mở form thêm bài học con</button>
         </form>
     </div>
-<!-- Tab Quản lý bài học con -->
-<div id="manage-sub-lessons" class="course-section">
+
+    <div id="manage-sub-lessons" class="course-section">
     <h2>Danh sách bài học con</h2>
     <form id="filter-sub-lesson-form">
         <div class="form-group">
@@ -606,9 +549,9 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
         </tbody>
     </table>
 </div>
-
     <!-- Tab Thêm bài kiểm tra -->
     <div id="add-test" class="course-section">
+    <h2>Thêm bài kiểm tra</h2>
     <form id="select-test-form">
         <div class="form-row">
             <div class="form-group">
@@ -631,61 +574,75 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
             </div>
         </div>
     </form>
-    <form id="test-form" onsubmit="return false;" style="display: none;">
+    <form method="POST" id="test-form" style="display: none;">
         <input type="hidden" name="sub_lesson_id" id="test_sub_lesson_id">
-        <div class="form-group">
-            <label for="question_text">Câu hỏi</label>
-            <textarea name="question_text" id="question_text" placeholder="Nhập câu hỏi" required></textarea>
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="option_a">Lựa chọn A</label>
-                <input type="text" name="option_a" id="option_a" placeholder="Nhập lựa chọn A" required>
+        <div id="question-list">
+            <div class="question-item" data-index="0">
+                <h3>Câu hỏi 1</h3>
+                <div class="form-group">
+                    <label for="question_text_0">Câu hỏi</label>
+                    <textarea name="questions[0][question_text]" id="question_text_0" placeholder="Nhập câu hỏi" required></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="option_a_0">Lựa chọn A</label>
+                        <input type="text" name="questions[0][option_a]" id="option_a_0" placeholder="Nhập lựa chọn A" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="option_b_0">Lựa chọn B</label>
+                        <input type="text" name="questions[0][option_b]" id="option_b_0" placeholder="Nhập lựa chọn B" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="option_c_0">Lựa chọn C</label>
+                        <input type="text" name="questions[0][option_c]" id="option_c_0" placeholder="Nhập lựa chọn C" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="option_d_0">Lựa chọn D</label>
+                        <input type="text" name="questions[0][option_d]" id="option_d_0" placeholder="Nhập lựa chọn D" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="correct_answer_0">Đáp án đúng</label>
+                    <select name="questions[0][correct_answer]" id="correct_answer_0" required>
+                        <option value="">Chọn đáp án đúng</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="option_b">Lựa chọn B</label>
-                <input type="text" name="option_b" id="option_b" placeholder="Nhập lựa chọn B" required>
-            </div>
         </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="option_c">Lựa chọn C</label>
-                <input type="text" name="option_c" id="option_c" placeholder="Nhập lựa chọn C" required>
-            </div>
-            <div class="form-group">
-                <label for="option_d">Lựa chọn D</label>
-                <input type="text" name="option_d" id="option_d" placeholder="Nhập lựa chọn D" required>
-            </div>
-        </div>
-        <div class="form-group">
-            <label for="correct_answer">Đáp án đúng</label>
-            <select name="correct_answer" id="correct_answer" required>
-                <option value="">Chọn đáp án đúng</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-            </select>
-        </div>
-        <button type="submit"><i class="fas fa-plus"></i> Thêm câu hỏi</button>
+        <button type="button" id="add-question-btn"><i class="fas fa-plus"></i> Thêm câu hỏi khác</button>
+        <button type="submit" name="add_test_questions"><i class="fas fa-save"></i> Lưu tất cả câu hỏi</button>
     </form>
 </div>
-
+</div>
 <!-- Tab Danh sách câu hỏi kiểm tra -->
 <div id="list-test-questions" class="course-section">
     <h2>Danh sách câu hỏi kiểm tra</h2>
     <form id="filter-test-question-form">
-        <div class="form-group">
-            <label for="course_filter_test_question">Lọc theo khóa học</label>
-            <select name="course_id" id="course_filter_test_question">
-                <option value="">Tất cả khóa học</option>
-                <?php
-                $courses_for_dropdown->data_seek(0);
-                while ($course = $courses_for_dropdown->fetch_assoc()):
-                ?>
-                    <option value="<?php echo $course['id']; ?>"><?php echo htmlspecialchars($course['course_name']); ?></option>
-                <?php endwhile; ?>
-            </select>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="course_filter_test_question">Lọc theo khóa học</label>
+                <select name="course_id" id="course_filter_test_question">
+                    <option value="">Tất cả khóa học</option>
+                    <?php
+                    $courses_for_dropdown->data_seek(0);
+                    while ($course = $courses_for_dropdown->fetch_assoc()):
+                    ?>
+                        <option value="<?php echo $course['id']; ?>"><?php echo htmlspecialchars($course['course_name']); ?></option>
+                    <?php endwhile; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="sub_lesson_filter_test_question">Lọc theo bài học con</label>
+                <select name="sub_lesson_id" id="sub_lesson_filter_test_question">
+                    <option value="">Tất cả bài học con</option>
+                </select>
+            </div>
         </div>
     </form>
     <table>
@@ -733,11 +690,6 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
         </tbody>
     </table>
 </div>
-
-
-
-
-
 
             <div id="contacts" class="content-section">
                 <h1>Quản Lý Tin Nhắn Liên Hệ</h1>
@@ -998,6 +950,7 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
     const subLessonSelect = document.getElementById('sub_lesson_select_test');
     const testForm = document.getElementById('test-form');
 
+    // Reset dropdown và ẩn form
     subLessonSelect.innerHTML = '<option value="">Chọn bài học con</option>';
     testForm.style.display = 'none';
 
@@ -1008,12 +961,21 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                 throw new Error('Lỗi mạng hoặc file không tồn tại');
             }
             const subLessons = await response.json();
-            subLessons.forEach(subLesson => {
-                const option = document.createElement('option');
-                option.value = subLesson.id;
-                option.textContent = subLesson.title;
-                subLessonSelect.appendChild(option);
-            });
+            if (subLessons.length === 0) {
+                Toastify({
+                    text: 'Không có bài học con nào cho khóa học này!',
+                    duration: 3000,
+                    backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+                    className: 'toast-error'
+                }).showToast();
+            } else {
+                subLessons.forEach(subLesson => {
+                    const option = document.createElement('option');
+                    option.value = subLesson.id;
+                    option.textContent = subLesson.title;
+                    subLessonSelect.appendChild(option);
+                });
+            }
         } catch (error) {
             console.error('Error:', error);
             Toastify({
@@ -1025,6 +987,18 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
         }
     }
 });
+
+document.getElementById('sub_lesson_select_test').addEventListener('change', () => {
+    const subLessonId = document.getElementById('sub_lesson_select_test').value;
+    const testForm = document.getElementById('test-form');
+    if (subLessonId) {
+        document.getElementById('test_sub_lesson_id').value = subLessonId;
+        testForm.style.display = 'block';
+    } else {
+        testForm.style.display = 'none';
+    }
+});
+
         // Xử lý chọn bài học con để hiển thị form thêm bài kiểm tra
         document.getElementById('sub_lesson_select_test').addEventListener('change', () => {
             const subLessonId = document.getElementById('sub_lesson_select_test').value;
@@ -1098,7 +1072,179 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                 }).showToast();
             <?php endif; ?>
         });
-        document.getElementById('course_filter_sub_lesson').addEventListener('change', async () => {
+        document.getElementById('course_filter_test_question').addEventListener('change', async () => {
+    const courseId = document.getElementById('course_filter_test_question').value;
+    const tableBody = document.getElementById('test-question-table-body');
+    try {
+        const response = await fetch(`get_test_questions.php?course_id=${courseId}`);
+        const questions = await response.json();
+        tableBody.innerHTML = questions.length === 0 
+            ? '<tr><td colspan="10">Không có câu hỏi kiểm tra nào!</td></tr>'
+            : questions.map(q => `
+                <tr>
+                    <td>${q.id}</td>
+                    <td>${q.course_name}</td>
+                    <td>${q.sub_lesson_title}</td>
+                    <td>${q.question_text}</td>
+                    <td>${q.option_a}</td>
+                    <td>${q.option_b}</td>
+                    <td>${q.option_c}</td>
+                    <td>${q.option_d}</td>
+                    <td>${q.correct_answer}</td>
+                    <td>
+                        <a class="delete-btn" href="?delete_test_question=${q.id}" onclick="return confirm('Xác nhận xóa?')"><i class="fas fa-trash"></i> Xóa</a>
+                    </td>
+                </tr>
+            `).join('');
+    } catch (error) {
+        Toastify({
+            text: 'Lỗi khi tải danh sách câu hỏi kiểm tra!',
+            duration: 3000,
+            backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+            className: 'toast-error'
+        }).showToast();
+    }
+});
+// Xử lý chọn khóa học để tải danh sách bài học con trong bộ lọc câu hỏi kiểm tra
+document.getElementById('course_filter_test_question').addEventListener('change', async () => {
+    const courseId = document.getElementById('course_filter_test_question').value;
+    const subLessonFilter = document.getElementById('sub_lesson_filter_test_question');
+    
+    // Reset dropdown bài học con
+    subLessonFilter.innerHTML = '<option value="">Tất cả bài học con</option>';
+
+    if (courseId) {
+        try {
+            const response = await fetch(`get_sub_lessons_list.php?course_id=${courseId}`);
+            if (!response.ok) {
+                throw new Error('Lỗi mạng hoặc file không tồn tại');
+            }
+            const subLessons = await response.json();
+            
+            if (subLessons.error) {
+                throw new Error(subLessons.error);
+            }
+
+            if (subLessons.length === 0) {
+                Toastify({
+                    text: 'Không có bài học con nào cho khóa học này!',
+                    duration: 3000,
+                    backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+                    className: 'toast-error'
+                }).showToast();
+            } else {
+                subLessons.forEach(subLesson => {
+                    const option = document.createElement('option');
+                    option.value = subLesson.id;
+                    option.textContent = subLesson.title;
+                    subLessonFilter.appendChild(option);
+                });
+            }
+        } catch (error) {
+            Toastify({
+                text: `Lỗi khi tải danh sách bài học con: ${error.message}`,
+                duration: 3000,
+                backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+                className: 'toast-error'
+            }).showToast();
+        }
+    }
+
+    // Tải danh sách câu hỏi với courseId, không có subLessonId
+    await filterTestQuestions(courseId, '');
+});
+
+// Xử lý lọc câu hỏi khi chọn bài học con
+document.getElementById('sub_lesson_filter_test_question').addEventListener('change', async () => {
+    const courseId = document.getElementById('course_filter_test_question').value;
+    const subLessonId = document.getElementById('sub_lesson_filter_test_question').value;
+    await filterTestQuestions(courseId, subLessonId);
+});
+
+// Hàm lọc câu hỏi
+async function filterTestQuestions(courseId, subLessonId) {
+    const tableBody = document.getElementById('test-question-table-body');
+    try {
+        const params = new URLSearchParams();
+        if (courseId) params.append('course_id', courseId);
+        if (subLessonId) params.append('sub_lesson_id', subLessonId);
+        
+        const response = await fetch(`get_test_questions.php?${params.toString()}`);
+        if (!response.ok) {
+            throw new Error('Lỗi khi tải câu hỏi');
+        }
+        
+        const questions = await response.json();
+        
+        if (questions.error) {
+            throw new Error(questions.error);
+        }
+
+        tableBody.innerHTML = questions.length === 0 
+            ? '<tr><td colspan="10">Không có câu hỏi kiểm tra nào!</td></tr>'
+            : questions.map(q => `
+                <tr>
+                    <td>${q.id}</td>
+                    <td>${q.course_name}</td>
+                    <td>${q.sub_lesson_title}</td>
+                    <td>${q.question_text}</td>
+                    <td>${q.option_a}</td>
+                    <td>${q.option_b}</td>
+                    <td>${q.option_c}</td>
+                    <td>${q.option_d}</td>
+                    <td>${q.correct_answer}</td>
+                    <td>
+                        <a class="delete-btn" href="?delete_test_question=${q.id}" onclick="return confirm('Xác nhận xóa?')"><i class="fas fa-trash"></i> Xóa</a>
+                    </td>
+                </tr>
+            `).join('');
+    } catch (error) {
+        Toastify({
+            text: `Lỗi khi tải danh sách câu hỏi: ${error.message}`,
+            duration: 3000,
+            backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+            className: 'toast-error'
+        }).showToast();
+    }
+}
+
+// Hàm lọc câu hỏi
+async function filterTestQuestions(courseId, subLessonId) {
+    const tableBody = document.getElementById('test-question-table-body');
+    try {
+        const params = new URLSearchParams();
+        if (courseId) params.append('course_id', courseId);
+        if (subLessonId) params.append('sub_lesson_id', subLessonId);
+        const response = await fetch(`get_test_questions.php?${params.toString()}`);
+        const questions = await response.json();
+        tableBody.innerHTML = questions.length === 0 
+            ? '<tr><td colspan="10">Không có câu hỏi kiểm tra nào!</td></tr>'
+            : questions.map(q => `
+                <tr>
+                    <td>${q.id}</td>
+                    <td>${q.course_name}</td>
+                    <td>${q.sub_lesson_title}</td>
+                    <td>${q.question_text}</td>
+                    <td>${q.option_a}</td>
+                    <td>${q.option_b}</td>
+                    <td>${q.option_c}</td>
+                    <td>${q.option_d}</td>
+                    <td>${q.correct_answer}</td>
+                    <td>
+                        <a class="delete-btn" href="?delete_test_question=${q.id}" onclick="return confirm('Xác nhận xóa?')"><i class="fas fa-trash"></i> Xóa</a>
+                    </td>
+                </tr>
+            `).join('');
+    } catch (error) {
+        Toastify({
+            text: 'Lỗi khi tải danh sách câu hỏi kiểm tra!',
+            duration: 3000,
+            backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
+            className: 'toast-error'
+        }).showToast();
+    }
+}
+document.getElementById('course_filter_sub_lesson').addEventListener('change', async () => {
     const courseId = document.getElementById('course_filter_sub_lesson').value;
     const tableBody = document.getElementById('sub-lesson-table-body');
     try {
@@ -1134,144 +1280,51 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
         }).showToast();
     }
 });
-document.getElementById('course_select_test').addEventListener('change', async () => {
-    const courseId = document.getElementById('course_select_test').value;
-    const subLessonSelect = document.getElementById('sub_lesson_select_test');
-    const testForm = document.getElementById('test-form');
-
-    // Reset dropdown và ẩn form
-    subLessonSelect.innerHTML = '<option value="">Chọn bài học con</option>';
-    testForm.style.display = 'none';
-
-    if (courseId) {
-        try {
-            const response = await fetch(`get_sub_lessons_list.php?course_id=${courseId}`);
-            if (!response.ok) {
-                throw new Error('Lỗi mạng hoặc file không tồn tại');
-            }
-            const subLessons = await response.json();
-            if (subLessons.length === 0) {
-                Toastify({
-                    text: 'Không có bài học con nào cho khóa học này!',
-                    duration: 3000,
-                    backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
-                    className: 'toast-error'
-                }).showToast();
-            } else {
-                subLessons.forEach(subLesson => {
-                    const option = document.createElement('option');
-                    option.value = subLesson.id;
-                    option.textContent = subLesson.title;
-                    subLessonSelect.appendChild(option);
-                });
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            Toastify({
-                text: 'Lỗi khi tải danh sách bài học con: ' + error.message,
-                duration: 3000,
-                backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
-                className: 'toast-error'
-            }).showToast();
-        }
-    }
-});
-
-document.getElementById('sub_lesson_select_test').addEventListener('change', () => {
-    const subLessonId = document.getElementById('sub_lesson_select_test').value;
-    const testForm = document.getElementById('test-form');
-    if (subLessonId) {
-        document.getElementById('test_sub_lesson_id').value = subLessonId;
-        testForm.style.display = 'block';
-    } else {
-        testForm.style.display = 'none';
-    }
-});
-document.getElementById('course_filter_test_question').addEventListener('change', async () => {
-    const courseId = document.getElementById('course_filter_test_question').value;
-    const tableBody = document.getElementById('test-question-table-body');
-    try {
-        const response = await fetch(`get_test_questions.php?course_id=${courseId}`);
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const text = await response.text();
-        console.log('Raw response:', text);
-        const questions = JSON.parse(text);
-        tableBody.innerHTML = questions.length === 0 
-            ? '<tr><td colspan="10">Không có câu hỏi kiểm tra nào!</td></tr>'
-            : questions.map(q => `
-                <tr>
-                    <td>${q.id}</td>
-                    <td>${q.course_name}</td>
-                    <td>${q.sub_lesson_title}</td>
-                    <td>${q.question_text}</td>
-                    <td>${q.option_a}</td>
-                    <td>${q.option_b}</td>
-                    <td>${q.option_c}</td>
-                    <td>${q.option_d}</td>
-                    <td>${q.correct_answer}</td>
-                    <td>
-                        <a class="delete-btn" href="?delete_test_question=${q.id}" onclick="return confirm('Xác nhận xóa?')"><i class="fas fa-trash"></i> Xóa</a>
-                    </td>
-                </tr>
-            `).join('');
-    } catch (error) {
-        console.error('Fetch error:', error);
-        Toastify({
-            text: 'Lỗi khi tải danh sách câu hỏi kiểm tra: ' + error.message,
-            duration: 3000,
-            backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
-            className: 'toast-error'
-        }).showToast();
-    }
-});
-// Xử lý submit form thêm câu hỏi
-document.getElementById('test-form').addEventListener('submit', async (event) => {
-    event.preventDefault(); // Ngăn submit mặc định
-    const submitButton = event.target.querySelector('button[type="submit"]');
-    submitButton.disabled = true; // Vô hiệu hóa nút submit
-
-    try {
-        const formData = new FormData(event.target);
-        formData.append('add_test_question', '1'); // Đảm bảo gửi đúng action
-        const response = await fetch('admin.php', {
-            method: 'POST',
-            body: formData
-        });
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        const result = await response.json();
-        if (result.success) {
-            Toastify({
-                text: result.message,
-                duration: 3000,
-                backgroundColor: 'linear-gradient(to right, #00b09b, #96c93d)',
-                className: 'toast-success'
-            }).showToast();
-            // Reset form
-            event.target.reset();
-            // Làm mới bảng câu hỏi kiểm tra nếu cần
-            const courseId = document.getElementById('course_select_test').value;
-            if (document.getElementById('list-test-questions').classList.contains('active')) {
-                await refreshTestQuestions(courseId);
-            }
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (error) {
-        console.error('Add question error:', error);
-        Toastify({
-            text: 'Lỗi khi thêm câu hỏi: ' + error.message,
-            duration: 3000,
-            backgroundColor: 'linear-gradient(to right, #dc3545, #c82333)',
-            className: 'toast-error'
-        }).showToast();
-    } finally {
-        submitButton.disabled = false; // Kích hoạt lại nút submit
-    }
+document.getElementById('add-question-btn').addEventListener('click', () => {
+    const questionList = document.getElementById('question-list');
+    const index = questionList.querySelectorAll('.question-item').length;
+    const questionItem = document.createElement('div');
+    questionItem.classList.add('question-item');
+    questionItem.setAttribute('data-index', index);
+    questionItem.innerHTML = `
+        <h3>Câu hỏi ${index + 1}</h3>
+        <div class="form-group">
+            <label for="question_text_${index}">Câu hỏi</label>
+            <textarea name="questions[${index}][question_text]" id="question_text_${index}" placeholder="Nhập câu hỏi" required></textarea>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="option_a_${index}">Lựa chọn A</label>
+                <input type="text" name="questions[${index}][option_a]" id="option_a_${index}" placeholder="Nhập lựa chọn A" required>
+            </div>
+            <div class="form-group">
+                <label for="option_b_${index}">Lựa chọn B</label>
+                <input type="text" name="questions[${index}][option_b]" id="option_b_${index}" placeholder="Nhập lựa chọn B" required>
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="option_c_${index}">Lựa chọn C</label>
+                <input type="text" name="questions[${index}][option_c]" id="option_c_${index}" placeholder="Nhập lựa chọn C" required>
+            </div>
+            <div class="form-group">
+                <label for="option_d_${index}">Lựa chọn D</label>
+                <input type="text" name="questions[${index}][option_d]" id="option_d_${index}" placeholder="Nhập lựa chọn D" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="correct_answer_${index}">Đáp án đúng</label>
+            <select name="questions[${index}][correct_answer]" id="correct_answer_${index}" required>
+                <option value="">Chọn đáp án đúng</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+            </select>
+        </div>
+        <button type="button" class="remove-question-btn" onclick="this.parentElement.remove()">Xóa câu hỏi</button>
+    `;
+    questionList.appendChild(questionItem);
 });
     </script>
 </body>
