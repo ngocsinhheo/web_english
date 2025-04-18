@@ -11,6 +11,67 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../auth/login.php");
     exit();
 }
+// Logic quản lý bài kiểm tra
+$testsDir = '../tests/';
+
+function getTests($dir) {
+    if (!is_dir($dir)) {
+        return [];
+    }
+    return array_filter(glob($dir . '*'), 'is_dir');
+}
+
+// Xử lý action=list để trả về danh sách bài thi
+if (isset($_GET['action']) && $_GET['action'] === 'list') {
+    header('Content-Type: application/json');
+    $tests = getTests($testsDir);
+    $testNames = array_map('basename', $tests);
+    echo json_encode($testNames);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_test'])) {
+    try {
+        $testId = preg_match('/^test\d+$/', trim($_POST['test_id'])) ? trim($_POST['test_id']) : 'test' . trim($_POST['test_id']);
+        $uploadDir = "{$testsDir}{$testId}/";
+        if (file_exists($uploadDir)) throw new Exception("ID '{$testId}' đã tồn tại!");
+
+        $dirs = [$uploadDir, "{$uploadDir}uploads/", "{$uploadDir}img/", "{$uploadDir}audio/"];
+        foreach ($dirs as $dir) if (!mkdir($dir, 0777, true)) throw new Exception("Không thể tạo thư mục!");
+
+        $csvPath = "{$uploadDir}uploads/questions.csv";
+        if (!move_uploaded_file($_FILES['csv_file']['tmp_name'], $csvPath)) throw new Exception("Lỗi upload CSV!");
+
+        foreach (['images' => 'img', 'audios' => 'audio'] as $type => $folder) {
+            if (isset($_FILES[$type]) && !empty($_FILES[$type]['name'][0])) {
+                foreach ($_FILES[$type]['tmp_name'] as $key => $tmpName) {
+                    if ($_FILES[$type]['error'][$key] === UPLOAD_ERR_OK) {
+                        move_uploaded_file($tmpName, "{$uploadDir}{$folder}/" . $_FILES[$type]['name'][$key]);
+                    }
+                }
+            }
+        }
+        $success = "Tạo bài kiểm tra {$testId} thành công!";
+    } catch (Exception $e) {
+        $error = "Lỗi: " . $e->getMessage();
+    }
+}
+
+if (isset($_GET['action']) && $_GET['action'] === 'delete' && isset($_GET['test'])) {
+    $testDir = "{$testsDir}{$_GET['test']}";
+    function deleteDir($dir) {
+        if (!file_exists($dir)) return true;
+        foreach (scandir($dir) as $item) {
+            if ($item == '.' || $item == '..') continue;
+            is_dir("$dir/$item") ? deleteDir("$dir/$item") : unlink("$dir/$item");
+        }
+        return rmdir($dir);
+    }
+    echo json_encode(deleteDir($testDir) ? ['status' => 'success'] : ['status' => 'error']);
+    exit;
+}
+
+$tests = getTests($testsDir);
 
 function handleFileUpload($file, $targetDir) {
     // Kiểm tra file có tồn tại và hợp lệ
@@ -151,17 +212,7 @@ if (isset($_POST['add_course'])) {
 
         // Upload file ảnh và tài liệu
         $image = handleFileUpload($_FILES["image"] ?? null, $target_dir);
-        $content_file = handleFileUpload($_FILES["content_file"] ?? null, $target_dir);
-
-        // Kiểm tra file và YouTube link
-        if (!$image || !$content_file || empty($youtube_link)) {
-            throw new Exception("Ảnh, tài liệu hoặc link YouTube không được để trống!");
-        }
-
-        // Kiểm tra định dạng link YouTube
-        if (!preg_match('/^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/', $youtube_link)) {
-            throw new Exception("Link YouTube không hợp lệ!");
-        }
+        
 
         // Kiểm tra giá trị category
         $valid_categories = ['grammar', 'reading', 'listening', 'pronunciation', 'free'];
@@ -289,13 +340,14 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
 </head>
 <body>
     <div class="container">
-        <div class="sidebar">
+    <div class="sidebar">
             <h2><i class="fas fa-cog"></i> Admin Panel</h2>
             <ul>
                 <li onclick="showSection('dashboard')" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</li>
                 <li onclick="showSection('users')"><i class="fas fa-users"></i> Quản Lý Người Dùng</li>
                 <li onclick="showSection('courses')"><i class="fas fa-book"></i> Quản Lý Khóa Học</li>
                 <li onclick="showSection('contacts')"><i class="fas fa-envelope"></i> Quản Lý Tin Nhắn</li>
+                <li onclick="showSection('tests')"><i class="fas fa-question-circle"></i> Quản Lý Bài Tests</li>
                 <li><a href="../auth/logout.php"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a></li>
             </ul>
         </div>
@@ -310,7 +362,7 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
                     <canvas id="popularCoursesChart"></canvas>
                 </div>
             </div>
-
+        
             <div id="users" class="content-section">
                 <h1>Quản Lý Người Dùng</h1>
                 <form method="POST">
@@ -686,7 +738,48 @@ $courses_for_dropdown = $conn->query("SELECT id, course_name FROM courses");
         </tbody>
     </table>
 </div>
-
+<div id="tests" class="content-section">
+    <h1>Quản Lý Bài Kiểm Tra</h1>
+    <?php if (isset($success)): ?>
+        <p class="success"><?php echo htmlspecialchars($success); ?></p>
+    <?php endif; ?>
+    <?php if (isset($error)): ?>
+        <p class="error"><?php echo htmlspecialchars($error); ?></p>
+    <?php endif; ?>
+    <form method="POST" enctype="multipart/form-data" class="admin-form">
+        <div class="form-group">
+            <label for="test_id">ID Bài Kiểm Tra</label>
+            <input type="text" name="test_id" id="test_id" placeholder="ID (VD: 2)" required>
+        </div>
+        <div class="form-group">
+            <label for="csv_file">File CSV Câu Hỏi</label>
+            <input type="file" name="csv_file" id="csv_file" accept=".csv" required>
+        </div>
+        <div class="form-group">
+            <label for="images">Hình Ảnh (Nhiều File)</label>
+            <input type="file" name="images[]" id="images" accept="image/*" multiple>
+        </div>
+        <div class="form-group">
+            <label for="audios">Âm Thanh (Nhiều File)</label>
+            <input type="file" name="audios[]" id="audios" accept="audio/*" multiple>
+        </div>
+        <button type="submit" name="create_test"><i class="fas fa-plus"></i> Tạo Bài Kiểm Tra</button>
+    </form>
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Hành động</th></tr>
+        </thead>
+        <tbody>
+            <?php foreach ($tests as $test): ?>
+                <tr>
+                    <td><?php echo htmlspecialchars(basename($test)); ?></td>
+                    <td><button class="delete-btn" onclick="deleteTest('<?php echo htmlspecialchars(basename($test)); ?>')"><i class="fas fa-trash"></i> Xóa</button></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+            <!-- Tab Quản lý tin nhắn liên hệ -->
             <div id="contacts" class="content-section">
                 <h1>Quản Lý Tin Nhắn Liên Hệ</h1>
                 <table>
@@ -1322,6 +1415,20 @@ document.getElementById('add-question-btn').addEventListener('click', () => {
     `;
     questionList.appendChild(questionItem);
 });
+function showSection(sectionId) {
+    document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.sidebar li').forEach(l => l.classList.remove('active'));
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.classList.add('active');
+        document.querySelector(`li[onclick="showSection('${sectionId}')"]`).classList.add('active');
+        if (sectionId === 'courses') {
+            showCourseSection('add-course'); // Mặc định mở tab Thêm khóa học
+        }
+    } else {
+        console.error(`Section with ID ${sectionId} not found`);
+    }
+}
     </script>
 </body>
 </html>

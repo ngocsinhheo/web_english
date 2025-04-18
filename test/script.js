@@ -37,10 +37,53 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1000);
     }
 
-    function updateAudio(part) {
-        const src = [2, 3, 4].includes(part) ? `../tests/${test}/audio/part${part}.mp3` : '';
-        els.audioSource.src = src;
-        if (src) els.audioPlayer.load();
+    async function updateAudio(part) {
+        try {
+            // Gửi yêu cầu đến API để lấy danh sách file âm thanh
+            const response = await fetch(`get_audio_files.php?test=${test}`);
+            const audioFiles = await response.json();
+
+            if (audioFiles.error) {
+                console.error(audioFiles.error);
+                els.audioPlayer.style.display = 'none';
+                els.audioSource.src = '';
+                return;
+            }
+
+            // Hiển thị audio player
+            els.audioPlayer.style.display = 'block';
+
+            // Tạo container cho nhiều audio player
+            const audioContainer = document.createElement('div');
+            audioContainer.className = 'audio-playlist';
+            audioFiles.forEach((src, index) => {
+                const audio = document.createElement('audio');
+                audio.controls = true;
+                audio.src = src;
+                audio.style.margin = '10px 0';
+                audio.addEventListener('play', () => {
+                    // Tạm dừng các audio khác khi một audio được phát
+                    document.querySelectorAll('audio').forEach(a => {
+                        if (a !== audio) a.pause();
+                    });
+                });
+                // Thêm nhãn hiển thị tên file
+                const fileName = src.split('/').pop();
+                const label = document.createElement('p');
+                label.textContent = `Âm thanh: ${fileName}`;
+                label.style.margin = '5px 0';
+                audioContainer.appendChild(label);
+                audioContainer.appendChild(audio);
+            });
+
+            // Thay thế audio player hiện tại bằng container mới
+            els.audioPlayer.parentNode.replaceChild(audioContainer, els.audioPlayer);
+            els.audioPlayer = audioContainer;
+        } catch (error) {
+            console.error('Lỗi khi tải danh sách file âm thanh:', error);
+            els.audioPlayer.style.display = 'none';
+            els.audioSource.src = '';
+        }
     }
 
     function displayQuestions(part) {
