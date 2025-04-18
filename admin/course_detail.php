@@ -2,6 +2,26 @@
 session_start();
 require_once '../config/config.php';
 
+// Hàm trích xuất ID video YouTube
+function getYouTubeVideoId($url) {
+    $video_id = '';
+    $patterns = [
+        '/youtube\.com\/watch\?v=([^\&\?\/]+)/i', // youtube.com/watch?v=abc123
+        '/youtu\.be\/([^\&\?\/]+)/i',             // youtu.be/abc123
+        '/youtube\.com\/embed\/([^\&\?\/]+)/i',   // youtube.com/embed/abc123
+        '/youtube\.com\/v\/([^\&\?\/]+)/i'        // youtube.com/v/abc123
+    ];
+
+    foreach ($patterns as $pattern) {
+        if (preg_match($pattern, $url, $matches)) {
+            $video_id = $matches[1];
+            break;
+        }
+    }
+
+    return $video_id;
+}
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: ../auth/login.php");
     exit();
@@ -112,10 +132,6 @@ $sub_lessons = $stmt->get_result();
             position: sticky;
             top: 20px;
             align-self: flex-start;
-            display: none;
-        }
-        .right-content.active {
-            display: block;
         }
         .sub-lesson {
             margin-bottom: 20px;
@@ -168,9 +184,17 @@ $sub_lessons = $stmt->get_result();
         }
         .video-container {
             margin-bottom: 15px;
+            position: relative;
+            padding-bottom: 56.25%; /* Tỷ lệ 16:9 */
+            height: 0;
+            overflow: hidden;
         }
-        .video-container video {
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
+            height: 100%;
             border-radius: 10px;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
@@ -240,8 +264,8 @@ $sub_lessons = $stmt->get_result();
                 width: 100%;
                 position: static;
             }
-            .video-container video {
-                max-width: 100%;
+            .video-container {
+                padding-bottom: 75%; /* Tỷ lệ 4:3 cho di động nếu cần */
             }
             footer div {
                 margin-bottom: 20px;
@@ -296,16 +320,55 @@ $sub_lessons = $stmt->get_result();
                 </div>
 
                 <div class="right-content">
+                    <!-- Video của khóa học (mặc định) -->
+                    <?php if (!empty($course['video_file'])): ?>
+                        <?php $course_video_id = getYouTubeVideoId($course['video_file']); ?>
+                        <?php if ($course_video_id): ?>
+                            <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
+                                <iframe 
+                                    width="100%" 
+                                    height="100%" 
+                                    src="https://www.youtube.com/embed/<?php echo htmlspecialchars($course_video_id); ?>" 
+                                    title="YouTube video player" 
+                                    frameborder="0" 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                    allowfullscreen>
+                                </iframe>
+                            </div>
+                        <?php else: ?>
+                            <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
+                                <p>Link video của khóa học không hợp lệ.</p>
+                            </div>
+                        <?php endif; ?>
+                    <?php else: ?>
+                        <div class="video-container" data-lesson-id="course-<?php echo $course['id']; ?>">
+                            <p>Không có video cho khóa học này.</p>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Video của bài học con -->
                     <?php if ($sub_lessons->num_rows > 0): ?>
                         <?php $sub_lessons->data_seek(0); ?>
                         <?php while ($lesson = $sub_lessons->fetch_assoc()): ?>
-                            <?php if ($lesson['video_file']): ?>
-                                <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
-                                    <video controls>
-                                        <source src="<?php echo htmlspecialchars($lesson['video_file']); ?>" type="video/mp4">
-                                        Trình duyệt không hỗ trợ video.
-                                    </video>
-                                </div>
+                            <?php if (!empty($lesson['video_url'])): ?>
+                                <?php $video_id = getYouTubeVideoId($lesson['video_url']); ?>
+                                <?php if ($video_id): ?>
+                                    <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
+                                        <iframe 
+                                            width="100%" 
+                                            height="100%" 
+                                            src="https://www.youtube.com/embed/<?php echo htmlspecialchars($video_id); ?>" 
+                                            title="YouTube video player" 
+                                            frameborder="0" 
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="video-container" data-lesson-id="<?php echo $lesson['id']; ?>" style="display: none;">
+                                        <p>Link video không hợp lệ.</p>
+                                    </div>
+                                <?php endif; ?>
                             <?php endif; ?>
                         <?php endwhile; ?>
                     <?php endif; ?>
@@ -347,51 +410,64 @@ $sub_lessons = $stmt->get_result();
                 const isActive = content.classList.contains('active');
                 const rightContent = document.querySelector('.right-content');
 
+                // Ẩn tất cả các video
+                document.querySelectorAll('.video-container').forEach(v => {
+                    v.style.display = 'none';
+                });
+
                 if (isActive) {
                     content.classList.remove('active');
                     arrow.textContent = '▼';
 
-                    const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
-                    if (lessonId) {
-                        const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
-                        if (videoContainer && videoContainer.style.display === 'block') {
-                            const video = videoContainer.querySelector('video');
-                            if (video) {
-                                video.pause();
-                            }
-                            videoContainer.style.display = 'none';
-                            rightContent.classList.remove('active');
-                        }
-                    }
-
-                    const anyActive = document.querySelector('.sub-lesson-content.active');
-                    if (!anyActive) {
-                        rightContent.classList.remove('active');
+                    // Hiển thị lại video của khóa học khi đóng bài học con
+                    const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
+                    if (courseVideo) {
+                        courseVideo.style.display = 'block';
+                        rightContent.classList.add('active');
                     }
                 } else {
+                    // Đóng tất cả các bài học con khác
+                    document.querySelectorAll('.sub-lesson-content').forEach(c => {
+                        c.classList.remove('active');
+                    });
+                    document.querySelectorAll('.sub-lesson-header span').forEach(s => {
+                        s.textContent = '▼';
+                    });
+
                     content.classList.add('active');
                     arrow.textContent = '▲';
 
-                    document.querySelectorAll('.video-container').forEach(v => {
-                        const video = v.querySelector('video');
-                        if (video) {
-                            video.pause();
-                        }
-                        v.style.display = 'none';
-                    });
-
+                    // Hiển thị video của bài học con
                     const lessonId = header.closest('.sub-lesson').querySelector('.test-button')?.getAttribute('href')?.match(/sub_lesson_id=(\d+)/)?.[1];
                     if (lessonId) {
                         const videoContainer = document.querySelector(`.video-container[data-lesson-id="${lessonId}"]`);
                         if (videoContainer) {
                             videoContainer.style.display = 'block';
                             rightContent.classList.add('active');
+                        } else {
+                            // Nếu không có video bài học con, hiển thị video khóa học
+                            const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
+                            if (courseVideo) {
+                                courseVideo.style.display = 'block';
+                                rightContent.classList.add('active');
+                            }
                         }
                     }
                 }
             });
         });
 
+        // Hiển thị video khóa học mặc định khi tải trang
+        document.addEventListener('DOMContentLoaded', () => {
+            const rightContent = document.querySelector('.right-content');
+            const courseVideo = document.querySelector(`.video-container[data-lesson-id="course-<?php echo $course['id']; ?>"]`);
+            if (courseVideo) {
+                courseVideo.style.display = 'block';
+                rightContent.classList.add('active');
+            }
+        });
+
+        // Nút cuộn lên đầu trang
         const scrollTopBtn = document.createElement('button');
         scrollTopBtn.textContent = '↑';
         scrollTopBtn.style.position = 'fixed';
