@@ -408,56 +408,6 @@ $conn->close(); // Đóng kết nối DB *TRƯỚC KHI* bắt đầu HTML
             </form>
         </div>
 
-        <div class="profile-section">
-            <h2>Lịch sử làm bài kiểm tra (Bài học nhỏ)</h2>
-            <?php if (!empty($sub_lesson_test_history)): ?>
-                <div style="overflow-x:auto;">
-                    <table class="history-table">
-                         <thead>
-                            <tr><th>Tên bài học</th><th>Điểm số</th><th>Tổng số câu</th><th>Ngày hoàn thành</th></tr>
-                         </thead>
-                         <tbody>
-                            <?php foreach ($sub_lesson_test_history as $result): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($result['lesson_title'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><?php echo htmlspecialchars($result['score'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><?php echo htmlspecialchars($result['total_questions'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><?php echo date('d/m/Y H:i', strtotime($result['completed_at'])); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                         </tbody>
-                    </table>
-                </div>
-            <?php else: ?>
-                <p class="no-history">Chưa có lịch sử làm bài kiểm tra từ các bài học nhỏ.</p>
-            <?php endif; ?>
-        </div>
-
-         <div class="profile-section">
-            <h2>Lịch sử làm bài kiểm tra (Tổng quát)</h2>
-            <?php if (!empty($general_test_history)): ?>
-                 <div style="overflow-x:auto;">
-                    <table class="history-table">
-                         <thead>
-                            <tr><th>Mã bài thi</th><th>Điểm số</th><th>Tổng số câu</th><th>Ngày hoàn thành</th></tr>
-                         </thead>
-                         <tbody>
-                            <?php foreach ($general_test_history as $result): ?>
-                                <tr>
-                                    <td><?php echo htmlspecialchars($result['test_id'] ?? 'N/A', ENT_QUOTES, 'UTF-8'); ?> <br><small><i>(Nên tạo bảng 'tests' để hiển thị tên)</i></small></td>
-                                    <td><?php echo htmlspecialchars($result['score'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><?php echo htmlspecialchars($result['total_questions'], ENT_QUOTES, 'UTF-8'); ?></td>
-                                    <td><?php echo date('d/m/Y H:i', strtotime($result['completed_at'])); ?></td>
-                                </tr>
-                            <?php endforeach; ?>
-                         </tbody>
-                    </table>
-                 </div>
-            <?php else: ?>
-                <p class="no-history">Chưa có lịch sử làm bài kiểm tra tổng quát.</p>
-            <?php endif; ?>
-        </div>
-
 
         <div class="profile-section">
             <h2>Lịch sử liên hệ & Phản hồi</h2>
@@ -503,29 +453,7 @@ $conn->close(); // Đóng kết nối DB *TRƯỚC KHI* bắt đầu HTML
     </div>
 
     <footer>
-        <div class="footer-content">
-             <div class="footer-section">
-                 <h3>Về chúng tôi</h3>
-                 <p>Ứng dụng học tiếng Anh giúp bạn cải thiện kỹ năng ngôn ngữ qua các bài học và bài kiểm tra.</p>
-             </div>
-             <div class="footer-section">
-                 <h3>Liên kết nhanh</h3>
-                 <p><a href="index.php">Trang chủ</a></p>
-                 <p><a href="courses.php">Khóa học</a></p>
-                 <p><a href="test/select_test.php">Thi thử</a></p>
-                 <p><a href="contact.php">Liên hệ</a></p>
-             </div>
-             <div class="footer-section">
-                 <h3>Kết nối</h3>
-                 <p>Email: support@yourapp.com</p>
-                 <p>Điện thoại: (123) 456-7890</p>
-                 <div class="social-icons">
-                     <a href="#"><i class="fab fa-facebook"></i></a>
-                     <a href="#"><i class="fab fa-twitter"></i></a>
-                     <a href="#"><i class="fab fa-instagram"></i></a>
-                 </div>
-             </div>
-        </div>
+        
         <p>&copy; <?php echo date('Y'); ?> English Learning. All rights reserved.</p>
     </footer>
 
@@ -555,7 +483,6 @@ $conn->close(); // Đóng kết nối DB *TRƯỚC KHI* bắt đầu HTML
             const scrollTopBtn = document.createElement('button');
             scrollTopBtn.innerHTML = '&#8593;'; // Mũi tên lên
             scrollTopBtn.style.position = 'fixed';
-            scrollTopBtn.style.bottom = '30px'; // Cao hơn chút
             scrollTopBtn.style.right = '30px';
             scrollTopBtn.style.background = '#007bff'; // Màu khác
             scrollTopBtn.style.color = '#fff';
